@@ -25,7 +25,9 @@
       "Bash(cmd /c \"dir \"\"D:\\\\Claude\\\\ALISIO Accounting\\\\app\"\"\")",
       "Bash(powershell -Command \"Get-ChildItem ''D:\\\\Claude\\\\ALISIO Accounting\\\\app'' | Select-Object Name\")",
       "Bash(powershell -Command \"Copy-Item -Path ''D:\\\\Claude\\\\ALISIO Accounting\\\\app\\\\\\(dashboard\\)'' -Destination ''D:\\\\Claude\\\\ALISIO Accounting\\\\app\\\\\\(app\\)'' -Recurse -Force; Get-ChildItem ''D:\\\\Claude\\\\ALISIO Accounting\\\\app\\\\\\(app\\)'' | Select-Object Name\")",
-      "Bash(powershell -Command \"Remove-Item -Path ''D:\\\\Claude\\\\ALISIO Accounting\\\\app\\\\\\(dashboard\\)'' -Recurse -Force; Write-Host ''Deleted''\")"
+      "Bash(powershell -Command \"Remove-Item -Path ''D:\\\\Claude\\\\ALISIO Accounting\\\\app\\\\\\(dashboard\\)'' -Recurse -Force; Write-Host ''Deleted''\")",
+      "Bash(powershell -Command \"Get-ChildItem ''D:\\\\Claude\\\\ALISIO Accounting\\\\app\\\\\\(app\\)\\\\clients'' -Recurse | Select-Object FullName\")",
+      "Bash(powershell -Command \"Get-ChildItem ''D:\\\\Claude\\\\ALISIO Accounting\\\\app\\\\api'' -Recurse | Select-Object FullName\")"
     ]
   }
 }

@@ -13,11 +13,11 @@ import {
   Building2,
   User,
   ExternalLink,
-  CheckSquare,
   FileText,
   Clock,
   Edit,
 } from "lucide-react";
+import DeleteClientButton from "@/components/DeleteClientButton";
 
 export default async function ClientPage({
   params,
@@ -96,6 +96,7 @@ export default async function ClientPage({
             <Edit className="w-3.5 h-3.5" />
             Upravit
           </Link>
+          <DeleteClientButton clientId={client.id} clientName={client.name} />
         </div>
       </div>
 

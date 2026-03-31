@@ -1,13 +1,18 @@
+import ClientForm from "@/components/ClientForm";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+
 export default function NewClientPage() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 max-w-3xl">
+      <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 w-fit">
+        <ArrowLeft className="w-3.5 h-3.5" /> Zpět
+      </Link>
       <div>
         <h1 className="text-2xl font-bold text-foreground">Nový klient</h1>
-        <p className="text-muted-foreground text-sm mt-0.5">Přidat nového klienta / entitu</p>
+        <p className="text-muted-foreground text-sm mt-0.5">Vyplňte informace o novém klientovi nebo entitě</p>
       </div>
-      <div className="bg-card border border-border rounded-xl p-8 text-center">
-        <p className="text-muted-foreground text-sm">Formulář se připravuje</p>
-      </div>
+      <ClientForm mode="new" />
     </div>
   );
 }
