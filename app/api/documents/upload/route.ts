@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, ...result });
   } catch (err) {
     console.error("Upload error:", err);
-    return NextResponse.json({ error: "Chyba při nahrávání souboru" }, { status: 500 });
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: `Upload failed: ${message}` }, { status: 500 });
   }
 }
