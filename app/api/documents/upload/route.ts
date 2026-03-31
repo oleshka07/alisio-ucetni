@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { put } from "@vercel/blob";
-import path from "path";
-import { v4 as uuidv4 } from "uuid";
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,8 +20,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Upload to Vercel Blob
-    const ext = path.extname(file.name);
-    const blobName = `documents/${clientId}/${uuidv4()}${ext}`;
+    const ext = file.name.includes(".") ? "." + file.name.split(".").pop() : "";
+    const blobName = `documents/${clientId}/${crypto.randomUUID()}${ext}`;
     
     const blob = await put(blobName, file, {
       access: "public",
