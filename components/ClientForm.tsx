@@ -35,10 +35,12 @@ export default function ClientForm({
   initialData,
   clientId,
   mode,
+  isPortal,
 }: {
   initialData?: Partial<ClientData>;
   clientId?: string;
   mode: "new" | "edit";
+  isPortal?: boolean;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -97,7 +99,8 @@ export default function ClientForm({
     setSaving(true);
     try {
       const payload = { basic, company, employee, tax, insurance };
-      const url = mode === "new" ? "/api/clients" : `/api/clients/${clientId}`;
+      const changedBy = isPortal ? "client" : "accountant";
+      const url = mode === "new" ? "/api/clients" : `/api/clients/${clientId}?changedBy=${changedBy}`;
       const method = mode === "new" ? "POST" : "PUT";
 
       const res = await fetch(url, {
@@ -109,7 +112,11 @@ export default function ClientForm({
 
       const data = await res.json();
       toast.success(mode === "new" ? "Klient vytvořen!" : "Uloženo!");
-      router.push(`/clients/${mode === "new" ? data.client.id : clientId}`);
+      if (isPortal) {
+        router.push("/portal/profile");
+      } else {
+        router.push(`/clients/${mode === "new" ? data.client.id : clientId}`);
+      }
       router.refresh();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Chyba při ukládání");

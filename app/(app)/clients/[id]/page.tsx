@@ -12,12 +12,12 @@ import Link from "next/link";
 import {
   Building2,
   User,
-  ExternalLink,
   FileText,
   Clock,
   Edit,
 } from "lucide-react";
 import DeleteClientButton from "@/components/DeleteClientButton";
+import AccessCodeManager from "@/components/AccessCodeManager";
 
 export default async function ClientPage({
   params,
@@ -81,14 +81,6 @@ export default async function ClientPage({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            href={`/clients/${client.id}/accountant`}
-            target="_blank"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-accent transition-colors"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-            Pohled účetní
-          </Link>
           <Link
             href={`/clients/${client.id}/edit`}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
@@ -239,6 +231,13 @@ export default async function ClientPage({
 
         {/* Right column */}
         <div className="space-y-5">
+          {/* Access code management */}
+          <AccessCodeManager
+            clientId={client.id}
+            clientName={client.name}
+            currentCode={client.accessCode}
+            codeCreatedAt={client.accessCodeCreatedAt?.toISOString() ?? null}
+          />
           {/* Upcoming taxes */}
           <div className="bg-card border border-border rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">

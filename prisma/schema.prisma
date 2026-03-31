@@ -17,6 +17,8 @@ model Client {
   role        String   // "owner" | "director" | "employee"
   color       String   @default("#6366f1") // accent color for UI
   isActive    Boolean  @default(true)
+  accessCode  String?  @unique // 6-digit code for client portal login
+  accessCodeCreatedAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -27,6 +29,7 @@ model Client {
   tasks            Task[]
   documents        Document[]
   taxEvents        TaxEvent[]
+  auditLogs        AuditLog[]
 }
 
 // ─── Дані роботодавця / компанії ─────────────────────────────────────────────
@@ -239,4 +242,20 @@ model ApiIntegration {
   lastSync    DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// ─── Аудит лог змін профілю ───────────────────────────────────────────────────
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  action      String   // "profile_updated" | "document_uploaded" | "task_status_changed"
+  changedBy   String   // "accountant" | "client"
+  section     String?  // "company" | "employee" | "tax" | "insurance" | "basic"
+  fieldName   String?  // specific field that changed
+  oldValue    String?  // previous value (JSON for complex)
+  newValue    String?  // new value (JSON for complex)
+  summary     String?  // human-readable summary of the change
+  createdAt   DateTime @default(now())
 }

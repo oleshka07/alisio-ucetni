@@ -4,6 +4,7 @@ import { formatDate, statusLabel, priorityLabel } from "@/lib/utils";
 import Link from "next/link";
 import { ArrowLeft, FileText, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import TaskStatusButtons from "@/components/TaskStatusButtons";
 
 export default async function TaskPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -88,6 +89,11 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
             </a>
           </div>
         )}
+
+        {/* Status change buttons */}
+        <div className="pt-3 border-t border-border">
+          <TaskStatusButtons taskId={task.id} currentStatus={task.status} />
+        </div>
       </div>
     </div>
   );

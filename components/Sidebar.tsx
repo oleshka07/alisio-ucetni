@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
-  Users,
   FileText,
   CheckSquare,
   Calendar,
@@ -14,6 +14,8 @@ import {
   Building2,
   User,
   Plug,
+  LogOut,
+  Loader2,
 } from "lucide-react";
 
 type Client = {
@@ -35,6 +37,15 @@ const navItems = [
 
 export default function Sidebar({ clients }: { clients: Client[] }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  };
 
   return (
     <aside className="w-64 shrink-0 border-r border-border bg-card flex flex-col h-full">
@@ -107,21 +118,13 @@ export default function Sidebar({ clients }: { clients: Client[] }) {
                     style={{ backgroundColor: client.color + "20" }}
                   >
                     {client.type === "company" ? (
-                      <Building2
-                        className="w-3.5 h-3.5"
-                        style={{ color: client.color }}
-                      />
+                      <Building2 className="w-3.5 h-3.5" style={{ color: client.color }} />
                     ) : (
-                      <User
-                        className="w-3.5 h-3.5"
-                        style={{ color: client.color }}
-                      />
+                      <User className="w-3.5 h-3.5" style={{ color: client.color }} />
                     )}
                   </div>
                   <span className="truncate flex-1">{client.name}</span>
-                  {active && (
-                    <ChevronRight className="w-3.5 h-3.5 shrink-0 opacity-50" />
-                  )}
+                  {active && <ChevronRight className="w-3.5 h-3.5 shrink-0 opacity-50" />}
                 </Link>
               );
             })}
@@ -129,19 +132,20 @@ export default function Sidebar({ clients }: { clients: Client[] }) {
         </div>
       </nav>
 
-      {/* Bottom */}
+      {/* Bottom — Logout */}
       <div className="p-3 border-t border-border">
-        <div className="flex items-center gap-2.5 px-3 py-2 rounded-md">
-          <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center">
-            <User className="w-4 h-4 text-primary" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">
-              Stepan
-            </p>
-            <p className="text-xs text-muted-foreground">Majitel</p>
-          </div>
-        </div>
+        <button
+          onClick={handleLogout}
+          disabled={loggingOut}
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+        >
+          {loggingOut ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <LogOut className="w-4 h-4" />
+          )}
+          <span>{loggingOut ? "Odhlašování..." : "Odhlásit se"}</span>
+        </button>
       </div>
     </aside>
   );

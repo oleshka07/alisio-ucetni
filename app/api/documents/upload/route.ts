@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { writeFile, mkdir } from "fs/promises";
+import { put } from "@vercel/blob";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 
@@ -21,24 +21,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Soubor je příliš velký (max 20 MB)" }, { status: 400 });
     }
 
-    // Save file to public/uploads/
-    const uploadsDir = path.join(process.cwd(), "public", "uploads", clientId);
-    await mkdir(uploadsDir, { recursive: true });
-
+    // Upload to Vercel Blob
     const ext = path.extname(file.name);
-    const filename = `${uuidv4()}${ext}`;
-    const filePath = path.join(uploadsDir, filename);
-    const buffer = Buffer.from(await file.arrayBuffer());
-    await writeFile(filePath, buffer);
+    const blobName = `documents/${clientId}/${uuidv4()}${ext}`;
+    
+    const blob = await put(blobName, file, {
+      access: "public",
+      addRandomSuffix: false,
+    });
 
-    const fileUrl = `/uploads/${clientId}/${filename}`;
+    const fileUrl = blob.url;
 
     // Create document + task in a transaction
     const result = await prisma.$transaction(async (tx) => {
       const doc = await tx.document.create({
         data: {
           clientId,
-          filename,
+          filename: blobName,
           originalName: file.name,
           fileSize: file.size,
           mimeType: file.type,
