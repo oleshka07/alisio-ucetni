@@ -1,1 +1,3 @@
-export { default } from "@/app/(dashboard)/dashboard/page";
+export default function DashboardGroupRoot() {
+  return null;
+}
