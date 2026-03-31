@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 
 // Helper: detect changed fields between old and new data
 function detectChanges(
@@ -32,6 +33,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const body = await req.json();
     const { basic, company, employee, tax, insurance } = body;
+
+    // Validate access: client can only update their own profile
+    const session = await getSession();
+    if (session?.role === "client" && session.clientId !== id) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
 
     // Get changedBy from query params
     const changedBy = req.nextUrl.searchParams.get("changedBy") || "accountant";

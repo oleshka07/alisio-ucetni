@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Upload, FileText, X, Loader2, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -19,6 +20,7 @@ export default function DocumentUploadForm({
   const [uploading, setUploading] = useState(false);
   const [done, setDone] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   const handleFile = (f: File) => {
     setFile(f);
@@ -63,6 +65,7 @@ export default function DocumentUploadForm({
       setDescription("");
       setTaskTitle("");
       toast.success("Dokument nahrán, úkol vytvořen!");
+      router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Chyba při nahrávání");
     } finally {

@@ -1,11 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const body = await req.json();
     const { status, priority, notes } = body;
+
+    // Validate access: client can only modify their own tasks
+    const session = await getSession();
+    if (session?.role === "client") {
+      const task = await prisma.task.findUnique({
+        where: { id },
+        select: { clientId: true },
+      });
+      if (!task || task.clientId !== session.clientId) {
+        return NextResponse.json({ error: "Access denied" }, { status: 403 });
+      }
+    }
 
     const data: Record<string, unknown> = {};
     if (status) data.status = status;
