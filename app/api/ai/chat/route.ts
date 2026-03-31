@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
 import { AI_TOOLS } from "@/lib/ai/tools";
 import { executeTool, setFileContext } from "@/lib/ai/executor";
+import { extractFileText } from "@/lib/ai/file-parser";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
 function getOpenAI() {
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
       file?: { base64: string; fileName: string; mimeType: string };
     };
 
-    // Set file context for tool executor
+    // Set file context for tool executor (for save_document_to_client)
     setFileContext(file || null);
 
     // Build OpenAI messages
@@ -30,14 +31,16 @@ export async function POST(req: NextRequest) {
       openaiMessages.push({ role: msg.role, content: msg.content });
     }
 
-    // Build the last user message (possibly with image)
+    // Build the last user message with file content
     const lastMessage = messages[messages.length - 1];
+    const userText = lastMessage.content || "";
+
     if (file && file.mimeType.startsWith("image/")) {
-      // Vision: send image as base64
+      // Vision: send image as base64 for GPT-4o to see
       openaiMessages.push({
         role: "user",
         content: [
-          { type: "text", text: lastMessage.content || `Analyzuj tento soubor: ${file.fileName}` },
+          { type: "text", text: userText || `Analyzuj tento soubor: ${file.fileName}` },
           {
             type: "image_url",
             image_url: {
@@ -48,16 +51,25 @@ export async function POST(req: NextRequest) {
         ],
       });
     } else if (file) {
-      // Non-image file: mention it in text
-      openaiMessages.push({
-        role: "user",
-        content: `${lastMessage.content || ""}\n\n[Přiložený soubor: ${file.fileName} (${file.mimeType}, ${Math.round(file.base64.length * 0.75 / 1024)} KB)]`,
-      });
+      // Non-image file: extract text content and send to GPT
+      const extractedText = await extractFileText(file.base64, file.fileName, file.mimeType);
+
+      if (extractedText) {
+        openaiMessages.push({
+          role: "user",
+          content: `${userText}\n\n--- OBSAH SOUBORU "${file.fileName}" ---\n${extractedText}\n--- KONEC SOUBORU ---`,
+        });
+      } else {
+        openaiMessages.push({
+          role: "user",
+          content: `${userText}\n\n[Přiložený soubor: ${file.fileName} (${file.mimeType}, ${Math.round(file.base64.length * 0.75 / 1024)} KB) — nepodařilo se extrahovat textový obsah. Pokud je to obrázek, může být potřeba jej přiložit jako obrázek.]`,
+        });
+      }
     } else {
-      openaiMessages.push({ role: "user", content: lastMessage.content });
+      openaiMessages.push({ role: "user", content: userText });
     }
 
-    // Call GPT-4o with tools — loop until we get a final response
+    // Call GPT-4o with tools
     let response = await getOpenAI().chat.completions.create({
       model: "gpt-4o",
       messages: openaiMessages,
@@ -77,11 +89,8 @@ export async function POST(req: NextRequest) {
       iterations < MAX_ITERATIONS
     ) {
       const toolCalls = response.choices[0].message.tool_calls;
-
-      // Add assistant message with tool calls
       openaiMessages.push(response.choices[0].message);
 
-      // Execute each tool
       for (const toolCall of toolCalls) {
         if (toolCall.type !== "function") continue;
         const fn = toolCall.function;
@@ -97,7 +106,6 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Get next response
       response = await getOpenAI().chat.completions.create({
         model: "gpt-4o",
         messages: openaiMessages,
