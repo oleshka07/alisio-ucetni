@@ -19,7 +19,13 @@
       "Bash(npm install:*)",
       "Bash(npx prisma:*)",
       "Bash(npx tsx:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(cmd /c \"xcopy /E /I /Y \"\"D:\\\\Claude\\\\ALISIO Accounting\\\\app\\\\\\(dashboard\\)\"\" \"\"D:\\\\Claude\\\\ALISIO Accounting\\\\app\\\\\\(app\\)\"\"\")",
+      "Bash(ls \"D:/Claude/ALISIO Accounting/app/\\(app\\)/\")",
+      "Bash(cmd /c \"dir \"\"D:\\\\Claude\\\\ALISIO Accounting\\\\app\"\"\")",
+      "Bash(powershell -Command \"Get-ChildItem ''D:\\\\Claude\\\\ALISIO Accounting\\\\app'' | Select-Object Name\")",
+      "Bash(powershell -Command \"Copy-Item -Path ''D:\\\\Claude\\\\ALISIO Accounting\\\\app\\\\\\(dashboard\\)'' -Destination ''D:\\\\Claude\\\\ALISIO Accounting\\\\app\\\\\\(app\\)'' -Recurse -Force; Get-ChildItem ''D:\\\\Claude\\\\ALISIO Accounting\\\\app\\\\\\(app\\)'' | Select-Object Name\")",
+      "Bash(powershell -Command \"Remove-Item -Path ''D:\\\\Claude\\\\ALISIO Accounting\\\\app\\\\\\(dashboard\\)'' -Recurse -Force; Write-Host ''Deleted''\")"
     ]
   }
 }

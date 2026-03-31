@@ -34,8 +34,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# conflicting route group page (handled by middleware)
-app/(dashboard)/page.tsx
+# old route group — renamed to (app) to fix Next.js manifest bug
+app/(dashboard)/
 
 # database
 *.db
