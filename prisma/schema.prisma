@@ -1,0 +1,241 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Клієнти (компанії/особи) ────────────────────────────────────────────────
+
+model Client {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   // "company" | "person"
+  role        String   // "owner" | "director" | "employee"
+  color       String   @default("#6366f1") // accent color for UI
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  companyProfile   CompanyProfile?
+  employeeProfile  EmployeeProfile?
+  taxProfile       TaxProfile?
+  insuranceProfile InsuranceProfile?
+  tasks            Task[]
+  documents        Document[]
+  taxEvents        TaxEvent[]
+}
+
+// ─── Дані роботодавця / компанії ─────────────────────────────────────────────
+
+model CompanyProfile {
+  id              String  @id @default(cuid())
+  clientId        String  @unique
+  client          Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  companyName     String?
+  ico             String? // IČO
+  dic             String? // DIČ / IČ DPH
+  street          String?
+  city            String?
+  zip             String?
+  country         String? @default("CZ")
+  contactPerson   String?
+  phone           String?
+  email           String?
+  dataBox         String? // datová schránka
+  bankAccount     String?
+  bankCode        String?
+  iban            String?
+  vatPayer        Boolean @default(false)
+  vatPeriod       String? // "monthly" | "quarterly"
+  registrationDate String?
+  legalForm       String? // s.r.o., a.s., OSVČ ...
+  businessActivity String?
+  notes           String?
+}
+
+// ─── Дані працівника/директора ────────────────────────────────────────────────
+
+model EmployeeProfile {
+  id                String  @id @default(cuid())
+  clientId          String  @unique
+  client            Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // Osobní údaje
+  title             String?
+  firstName         String?
+  lastName          String?
+  birthSurname      String?
+  birthDate         String?
+  birthPlace        String?
+  birthCountry      String?
+  nationality       String?
+  citizenship       String?
+  birthNumber       String? // rodné číslo
+  oic               String? // OIČ
+  idCardNumber      String?
+  gender            String? // "M" | "F"
+
+  // Trvalá adresa
+  permStreet        String?
+  permCity          String?
+  permZip           String?
+  permCountry       String?
+
+  // Přechodná adresa
+  tempStreet        String?
+  tempCity          String?
+  tempZip           String?
+  tempCountry       String?
+
+  // Kontakt
+  phone             String?
+  email             String?
+  bankAccount       String?
+  bankCode          String?
+  iban              String?
+  dataBox           String?
+
+  // Vzdělání
+  education         String? // kód vzdělání
+
+  // Pro cizince
+  isForeigner       Boolean @default(false)
+  foreignerType     String? // "EU" | "ThirdCountry"
+  freeAccessReason  String?
+  permitType        String?
+  docType           String? // "Passport" | "ID" | "Other"
+  docNumber         String?
+  docCountry        String?
+  docValidUntil     String?
+  residenceConfirmNumber String?
+  residenceStreet   String?
+  residenceCity     String?
+  residenceZip      String?
+  hasCzBirthNumber  Boolean @default(true)
+  healthInsuranceName String?
+  healthInsuranceNumber String?
+  hasInsuranceCard  Boolean @default(true)
+  socialInsuranceNumber String?
+  taxStatus         String? // "Resident" | "NonResident"
+  notes             String?
+}
+
+// ─── Daňové a pojistné údaje ──────────────────────────────────────────────────
+
+model TaxProfile {
+  id                    String  @id @default(cuid())
+  clientId              String  @unique
+  client                Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  wantsYearlySettlement Boolean @default(true)
+  wantsBasicTaxCredit   Boolean @default(true)
+  maritalStatus         String? // "single" | "married" | "divorced" | "widowed"
+  spouseName            String?
+  spouseBirthNumber     String?
+  isZTPP                Boolean @default(false) // zdravotní postižení
+  child1BirthNumber     String?
+  child2BirthNumber     String?
+  child3BirthNumber     String?
+  hasChildTaxCredit     Boolean @default(false)
+  workLocation          String?
+  notes                 String?
+}
+
+// ─── Pojistné a ostatní ───────────────────────────────────────────────────────
+
+model InsuranceProfile {
+  id                          String  @id @default(cuid())
+  clientId                    String  @unique
+  client                      Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  healthInsuranceCode         String?
+  healthInsuranceName         String?
+  invalidityDegree            String? // "I" | "II" | "III"
+  otherEmployment             Boolean @default(false)
+  wageDeductions              Boolean @default(false) // exekuce
+  isPensioner                 Boolean @default(false)
+  pensionType                 String?
+  isStudent                   Boolean @default(false)
+  maternityBenefit            Boolean @default(false)
+  parentalBenefit             Boolean @default(false)
+  isJobSeeker                 Boolean @default(false)
+  isCaregiving                Boolean @default(false)
+  isChildcareUnder7           Boolean @default(false)
+  anotherEmployerWithInsurance Boolean @default(false)
+  anotherEmployerName         String?
+  isSelfEmployedMinBase       Boolean @default(false)
+  notes                       String?
+}
+
+// ─── Документи ────────────────────────────────────────────────────────────────
+
+model Document {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  filename    String
+  originalName String
+  fileSize    Int?
+  mimeType    String?
+  fileUrl     String   // path or URL
+  uploadedBy  String   // "client" | "accountant"
+  description String?
+  createdAt   DateTime @default(now())
+
+  task        Task?
+}
+
+// ─── Завдання ─────────────────────────────────────────────────────────────────
+
+model Task {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  documentId  String?  @unique
+  document    Document? @relation(fields: [documentId], references: [id])
+  title       String
+  description String?
+  status      String   @default("pending") // "pending" | "in_progress" | "done" | "cancelled"
+  priority    String   @default("normal")  // "low" | "normal" | "high"
+  dueDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String   @default("accountant") // "client" | "accountant"
+  notes       String?
+}
+
+// ─── Податкові події / календар ───────────────────────────────────────────────
+
+model TaxEvent {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  eventType   String   // "tax_payment" | "report" | "deadline" | "reconciliation"
+  dueDate     DateTime
+  amount      Float?
+  currency    String   @default("CZK")
+  status      String   @default("upcoming") // "upcoming" | "paid" | "overdue" | "cancelled"
+  isPredicted Boolean  @default(false)
+  period      String?  // "2025-01" "2025-Q1" "2025"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ─── API інтеграції (для майбутнього) ─────────────────────────────────────────
+
+model ApiIntegration {
+  id          String   @id @default(cuid())
+  name        String   // "fakturoid" | "pohoda" | "money_s3" | "moje_id" etc.
+  displayName String
+  isActive    Boolean  @default(false)
+  config      String?  // JSON string with integration config
+  lastSync    DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

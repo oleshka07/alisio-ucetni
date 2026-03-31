@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/stepe/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/778be95c-12c9-4c64-8816-73c9606d561a/bf969594-c9a6-42d9-8278-85ae9ff2e565/skills/xlsx/**)",
+      "Bash(python -c \":*)",
+      "Bash(pip install:*)",
+      "Bash(python -c \"import sys; data=sys.stdin.buffer.read\\(\\); print\\(data.decode\\(''''utf-8'''', errors=''''replace''''\\)\\)\")",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --no-src-dir --import-alias \"@/*\" --yes)",
+      "Read(//d/Claude/**)",
+      "Bash(npx create-next-app@latest alisio-accounting --typescript --tailwind --eslint --app --no-src-dir --import-alias \"@/*\" --yes)",
+      "Bash(npx --yes create-next-app@latest . --typescript --tailwind --eslint --app --no-src-dir --import-alias \"@/*\")",
+      "Bash(mkdir -p \"D:/Claude/ALISIO Accounting/app\")",
+      "Bash(npm init:*)",
+      "Bash(cmd /c \"mkdir \"\"D:\\\\Claude\\\\ALISIO Accounting\\\\app\"\"\")",
+      "Bash(cmd /c \"dir \"\"D:\\\\Claude\\\\ALISIO Accounting\"\"\")",
+      "Bash(cmd /c \"move \"\"D:\\\\Claude\\\\ALISIO Accounting\\\\app\\\\\\(dashboard\\)\\\\page.tsx\"\" \"\"D:\\\\Claude\\\\ALISIO Accounting\\\\app\\\\\\(dashboard\\)\\\\dashboard\\\\page.tsx\"\"\")",
+      "Bash(ls \"D:/Claude/ALISIO Accounting/app/\\(dashboard\\)/dashboard/\")",
+      "Bash(ls \"D:/Claude/ALISIO Accounting/app/\\(dashboard\\)/\")",
+      "Bash(npm install:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npm run:*)"
+    ]
+  }
+}
