@@ -22,8 +22,7 @@ export default function DeleteClientButton({
       const res = await fetch(`/api/clients/${clientId}`, { method: "DELETE" });
       if (!res.ok) throw new Error((await res.json()).error);
       toast.success(`Klient "${clientName}" byl smazán`);
-      router.push("/dashboard");
-      router.refresh();
+      window.location.href = "/dashboard";
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Chyba při mazání");
       setDeleting(false);

@@ -31,14 +31,16 @@ export default function CreateTaskForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title,
-          description,
+          title: title.trim(),
+          description: description.trim() || null,
           clientId,
           priority,
           dueDate: dueDate || null,
         }),
       });
-      if (!res.ok) throw new Error((await res.json()).error);
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Chyba serveru");
 
       toast.success("Úkol vytvořen!");
       setTitle("");
