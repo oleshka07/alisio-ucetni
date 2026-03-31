@@ -34,6 +34,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# conflicting route group page (handled by middleware)
+app/(dashboard)/page.tsx
+
 # database
 *.db
 *.db-journal
