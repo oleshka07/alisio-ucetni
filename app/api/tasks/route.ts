@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,7 +11,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Název a klient jsou povinné" }, { status: 400 });
     }
 
-    // Verify client exists
     const client = await prisma.client.findUnique({ where: { id: clientId } });
     if (!client) {
       return NextResponse.json({ error: "Klient neexistuje" }, { status: 404 });
@@ -27,6 +27,12 @@ export async function POST(req: NextRequest) {
         createdBy: "accountant",
       },
     });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/tasks");
+    revalidatePath("/portal");
+    revalidatePath("/portal/tasks");
+    revalidatePath(`/clients/${clientId}`);
 
     return NextResponse.json({ success: true, task });
   } catch (err) {

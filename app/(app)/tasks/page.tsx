@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { prisma } from "@/lib/prisma";
 import { formatDate, statusLabel, priorityLabel } from "@/lib/utils";
 import { cn } from "@/lib/utils";

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { put } from "@vercel/blob";
+import { revalidatePath } from "next/cache";
 
 export async function POST(req: NextRequest) {
   try {
@@ -59,6 +60,14 @@ export async function POST(req: NextRequest) {
 
       return { doc, task };
     });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/tasks");
+    revalidatePath("/documents");
+    revalidatePath("/portal");
+    revalidatePath("/portal/tasks");
+    revalidatePath("/portal/documents");
+    revalidatePath(`/clients/${clientId}`);
 
     return NextResponse.json({ success: true, ...result });
   } catch (err) {

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { prisma } from "@/lib/prisma";
 import { formatDate, formatFileSize } from "@/lib/utils";
 import DocumentUploadForm from "@/components/DocumentUploadForm";

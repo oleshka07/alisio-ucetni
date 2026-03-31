@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -30,6 +31,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       data,
     });
 
+    // Revalidate all pages that show tasks
+    revalidatePath("/dashboard");
+    revalidatePath("/tasks");
+    revalidatePath("/portal");
+    revalidatePath("/portal/tasks");
+    revalidatePath(`/clients/${task.clientId}`);
+
     return NextResponse.json({ success: true, task });
   } catch (err) {
     console.error(err);
@@ -40,7 +48,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    const task = await prisma.task.findUnique({ where: { id }, select: { clientId: true } });
     await prisma.task.delete({ where: { id } });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/tasks");
+    revalidatePath("/portal");
+    revalidatePath("/portal/tasks");
+    if (task) revalidatePath(`/clients/${task.clientId}`);
+
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error(err);

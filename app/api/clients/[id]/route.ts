@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
 
 // Helper: detect changed fields between old and new data
 function detectChanges(
@@ -122,6 +123,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       }
     });
 
+    revalidatePath("/dashboard");
+    revalidatePath("/tasks");
+    revalidatePath("/documents");
+    revalidatePath("/calendar");
+    revalidatePath(`/clients/${id}`);
+    revalidatePath("/portal");
+    revalidatePath("/portal/profile");
+
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error(err);
@@ -133,6 +142,12 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   try {
     const { id } = await params;
     await prisma.client.delete({ where: { id } });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/tasks");
+    revalidatePath("/documents");
+    revalidatePath("/calendar");
+
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error(err);
