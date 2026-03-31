@@ -5,9 +5,9 @@ import { AI_TOOLS } from "@/lib/ai/tools";
 import { executeTool, setFileContext } from "@/lib/ai/executor";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAI() {
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Call GPT-4o with tools — loop until we get a final response
-    let response = await openai.chat.completions.create({
+    let response = await getOpenAI().chat.completions.create({
       model: "gpt-4o",
       messages: openaiMessages,
       tools: AI_TOOLS,
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Get next response
-      response = await openai.chat.completions.create({
+      response = await getOpenAI().chat.completions.create({
         model: "gpt-4o",
         messages: openaiMessages,
         tools: AI_TOOLS,
