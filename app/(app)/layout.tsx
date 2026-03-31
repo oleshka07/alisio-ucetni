@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import Sidebar from "@/components/Sidebar";
+import AiAssistant from "@/components/AiAssistant";
 
 export default async function DashboardLayout({
   children,
@@ -17,6 +18,7 @@ export default async function DashboardLayout({
       <main className="flex-1 overflow-y-auto">
         <div className="p-6 max-w-7xl mx-auto">{children}</div>
       </main>
+      <AiAssistant />
     </div>
   );
 }
