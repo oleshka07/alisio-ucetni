@@ -358,7 +358,7 @@ async function saveDocumentToClient(args: Record<string, unknown>): Promise<stri
   const blobName = `documents/${clientId}/${crypto.randomUUID()}${ext}`;
 
   const blob = await put(blobName, buffer, {
-    access: "public",
+      access: "private",
     addRandomSuffix: false,
     contentType: currentFileContext.mimeType,
   });
