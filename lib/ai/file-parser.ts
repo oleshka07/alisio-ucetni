@@ -12,10 +12,9 @@ export async function extractFileText(
   // PDF
   if (mimeType === "application/pdf" || fileName.endsWith(".pdf")) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const pdfParse = require("pdf-parse") as (buffer: Buffer) => Promise<{ text: string }>;
-      const data = await pdfParse(buffer);
-      return data.text?.trim() || null;
+      // pdf-parse 2.x більше не експортує функцію — читаємо текст через pdfjs напряму
+      const { pdfText } = await import("@/lib/bank/kb-pdf");
+      return (await pdfText(buffer)).trim() || null;
     } catch (err) {
       console.error("PDF parse error:", err);
       return null;

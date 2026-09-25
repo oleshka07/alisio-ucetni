@@ -6,6 +6,7 @@ import { ingestDocument } from "./ingest";
 import { ingestReply, notifyOwners } from "@/lib/telegram/notify";
 import { isDataBoxNotification } from "@/lib/databox/notification";
 import { handleDataBoxMail } from "@/lib/databox/handle";
+import { isBankStatementFile } from "@/lib/bank/kb-pdf";
 
 /** Лист схожий на фактуру/чек (тема або назва файлу). */
 export const INVOICE_WORDS = /faktur|invoice|da[ňn]ov[ýy][\s_-]*doklad|[úu][čc]tenk|receipt|rechnung|vy[úu][čc]tov[áa]n|z[áa]lohov|proforma|billing|payment|platb|рахун|інвойс|инвойс|\.isdoc/i;
@@ -83,6 +84,7 @@ export async function syncDocumentInbox(inbox: DocumentInbox): Promise<InboxRepo
         if (!atts.length || !looksLikeInvoiceMail(mail.subject, mail.text, atts.map((a) => a.filename || ""))) continue;
       }
       for (const att of atts) {
+        if (await isBankStatementFile(att.content)) continue; // виписки забирає синхронізація рахунку
         const outcome = await ingestDocument({
           requireFinancial: mixed as true,
           buffer: att.content,

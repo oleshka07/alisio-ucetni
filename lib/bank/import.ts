@@ -11,7 +11,7 @@ export function dedupHash(bankAccountId: string, t: ParsedTransaction): string {
   return sha256Hex(key).slice(0, 40);
 }
 
-function sameAccount(acc: BankAccount, st: ParsedStatement): boolean {
+export function sameAccount(acc: Pick<BankAccount, "accountNumber" | "iban">, st: ParsedStatement): boolean {
   const mine = [acc.accountNumber, acc.iban].map(normalizeAccount).filter(Boolean);
   const theirs = [st.accountNumber, st.iban].map(normalizeAccount).filter(Boolean);
   if (!mine.length || !theirs.length) return true; // не з чим порівнювати
