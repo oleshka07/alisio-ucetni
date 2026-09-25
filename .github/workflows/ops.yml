@@ -1,0 +1,30 @@
+name: ops
+
+# Сервісні скрипти на Hetzner: Actions → ops → Run workflow → назва скрипта з deploy/ops/.
+# Логи workflow видно всім, поки репо публічний — скрипти не друкують секретів.
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: "Скрипт з deploy/ops/ без .sh (наприклад probe)"
+        required: true
+        default: probe
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run deploy/ops/${{ inputs.script }}.sh on server
+        env:
+          HOST: ${{ secrets.HETZNER_HOST || '46.225.132.220' }}
+          KEY: ${{ secrets.HETZNER_SSH_KEY }}
+          SCRIPT: ${{ inputs.script }}
+        run: |
+          case "$SCRIPT" in *[!a-z0-9_-]*|"") echo "bad script name"; exit 1;; esac
+          test -f "deploy/ops/$SCRIPT.sh"
+          test -n "$KEY" || { echo "::error::secret HETZNER_SSH_KEY is empty"; exit 1; }
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id && chmod 600 ~/.ssh/id
+          ssh -i ~/.ssh/id -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 "root@$HOST" 'bash -s' < "deploy/ops/$SCRIPT.sh"

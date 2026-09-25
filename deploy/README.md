@@ -6,7 +6,7 @@
 | Папка | `/root/projects/alisio-ucetni` |
 | Порт | `3002` (PMS — 3001) |
 | Сервіс | `alisio-ucetni` (systemd) |
-| Домен | `ucetni.swipescape.eu` (A-запис → 46.225.132.220) |
+| Домен | `ucetni.rozum.one` (A-запис → 46.225.132.220; `rozum.one` сам дивиться на інший сервер) |
 | База | Postgres 16 на сервері, БД і користувач `alisio_ucetni` |
 | Файли документів | `/var/lib/alisio-ucetni/files` |
 | Бекапи | `/root/backups/alisio-ucetni` (30 днів) |
@@ -79,10 +79,10 @@ cp deploy/alisio-ucetni.service /etc/systemd/system/
 systemctl daemon-reload && systemctl enable alisio-ucetni
 bash deploy/deploy.sh            # npm ci → migrate → build → restart
 
-cp deploy/nginx.conf /etc/nginx/sites-available/ucetni.swipescape.eu
-ln -s /etc/nginx/sites-available/ucetni.swipescape.eu /etc/nginx/sites-enabled/
+cp deploy/nginx.conf /etc/nginx/sites-available/ucetni.rozum.one
+ln -s /etc/nginx/sites-available/ucetni.rozum.one /etc/nginx/sites-enabled/
 nginx -t && systemctl reload nginx
-certbot --nginx -d ucetni.swipescape.eu
+certbot --nginx -d ucetni.rozum.one
 ```
 
 Якщо PMS стоїть за Caddy чи іншим проксі, а не nginx, додайте туди аналогічний reverse proxy на `127.0.0.1:3002`.
@@ -95,7 +95,7 @@ crontab -e     # вставити вміст deploy/crontab.txt
 
 ## 6. Перший вхід
 
-1. Відкрийте `https://ucetni.swipescape.eu` і увійдіть з `BOOTSTRAP_OWNER_EMAIL` / `BOOTSTRAP_OWNER_PASSWORD`. Власник створиться автоматично.
+1. Відкрийте `https://ucetni.rozum.one` і увійдіть з `BOOTSTRAP_OWNER_EMAIL` / `BOOTSTRAP_OWNER_PASSWORD`. Власник створиться автоматично.
 2. Одразу змініть пароль: **Nastavení → Změna hesla**. Після цього `BOOTSTRAP_OWNER_PASSWORD` можна видалити з `.env`.
 3. **Nastavení → Telegram → Nastavit webhook**, потім **Připojit Telegram**. Бот відкриється, натисніть Start.
 4. Клієнти → додайте або перевірте **Swipe Scape s.r.o.**: IČO, DIČ, датова схранка (ID). За IČO система розуміє, вхідна це фактура чи видана. За ID схранки — до якої компанії належить сповіщення.
