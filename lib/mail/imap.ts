@@ -40,6 +40,9 @@ export async function fetchNewMail(cfg: ImapConfig, opts: { firstSyncDays?: numb
     logger: false,
     socketTimeout: 30_000,
   });
+  // Обрив/таймаут сокета ImapFlow віддає подією "error"; без слухача це uncaughtException.
+  // Сама помилка все одно приходить як rejection поточного виклику.
+  client.on("error", () => undefined);
 
   const mails: FetchedMail[] = [];
   let maxUid = cfg.lastUid || 0;
@@ -127,12 +130,14 @@ export async function testImap(cfg: Omit<ImapConfig, "lastUid" | "senderFilter">
     logger: false,
     socketTimeout: 20_000,
   });
+  client.on("error", () => undefined);
   try {
     await client.connect();
     const st = await client.status(cfg.folder || "INBOX", { messages: true });
-    await client.logout();
     return { ok: true, messages: st.messages };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  } finally {
+    await client.logout().catch(() => undefined);
   }
 }
