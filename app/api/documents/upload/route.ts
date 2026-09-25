@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { put } from "@vercel/blob";
+import { putFile } from "@/lib/storage";
+import { sha256Hex } from "@/lib/crypto";
+import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 export async function POST(req: NextRequest) {
@@ -8,9 +10,15 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const clientId = formData.get("clientId") as string;
-    const uploadedBy = (formData.get("uploadedBy") as string) || "accountant";
+    let uploadedBy = (formData.get("uploadedBy") as string) || "accountant";
     const description = (formData.get("description") as string) || "";
     const taskTitle = (formData.get("taskTitle") as string) || `Dokument: ${file?.name}`;
+
+    const session = await getSession();
+    if (session?.role === "client" && session.clientId !== clientId) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+    uploadedBy = session?.role === "client" ? "client" : session?.role === "owner" ? "owner" : "accountant";
 
     if (!file || !clientId) {
       return NextResponse.json({ error: "Missing file or clientId" }, { status: 400 });
@@ -20,16 +28,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Soubor je příliš velký (max 20 MB)" }, { status: 400 });
     }
 
-    // Upload to Vercel Blob
+    // Сховище: Vercel Blob або локальний диск (lib/storage)
     const ext = file.name.includes(".") ? "." + file.name.split(".").pop() : "";
     const blobName = `documents/${clientId}/${crypto.randomUUID()}${ext}`;
-    
-    const blob = await put(blobName, file, {
-      access: "private",
-      addRandomSuffix: false,
-    });
-
-    const fileUrl = blob.url;
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const fileUrl = await putFile(blobName, buffer, file.type);
 
     // Create document + task in a transaction
     const result = await prisma.$transaction(async (tx) => {
@@ -43,6 +46,9 @@ export async function POST(req: NextRequest) {
           fileUrl,
           uploadedBy,
           description,
+          source: uploadedBy === "client" ? "web" : "accountant",
+          sha256: sha256Hex(buffer),
+          aiStatus: "skipped",
         },
       });
 

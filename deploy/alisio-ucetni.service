@@ -1,0 +1,21 @@
+[Unit]
+Description=Alisio Účetnictví — doklady k platbám, datové schránky, Telegram
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+WorkingDirectory=/root/projects/alisio-ucetni
+ExecStart=/usr/bin/node node_modules/.bin/next start -p 3002 -H 127.0.0.1
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=PORT=3002
+Environment=TZ=Europe/Prague
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=alisio-ucetni
+
+[Install]
+WantedBy=multi-user.target

@@ -53,7 +53,7 @@ export default async function PortalDocumentsPage() {
                     <div className="flex items-center gap-3 shrink-0">
                       <p className="text-xs text-muted-foreground">{formatDate(doc.createdAt)}</p>
                       <a
-                        href={doc.fileUrl}
+                        href={`/api/documents/${doc.id}/file`}
                         target="_blank"
                         className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                         title="Stáhnout"

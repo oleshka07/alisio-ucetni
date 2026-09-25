@@ -3,12 +3,22 @@
 import { useState, useEffect } from "react";
 
 export default function SplashScreen() {
-  const [visible, setVisible] = useState(true);
+  // Заставка — лише раз за сесію браузера і не на сторінці входу/посиланнях з Telegram
+  const [visible, setVisible] = useState(false);
   const [fadeOut, setFadeOut] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => setFadeOut(true), 5500);
-    const removeTimer = setTimeout(() => setVisible(false), 6300);
+    let seen = true;
+    try {
+      seen = sessionStorage.getItem("alisio_splash") === "1";
+      sessionStorage.setItem("alisio_splash", "1");
+    } catch {
+      seen = true;
+    }
+    if (seen || window.location.pathname !== "/dashboard") return;
+    setVisible(true);
+    const timer = setTimeout(() => setFadeOut(true), 2500);
+    const removeTimer = setTimeout(() => setVisible(false), 3300);
     return () => {
       clearTimeout(timer);
       clearTimeout(removeTimer);
@@ -53,6 +63,7 @@ export default function SplashScreen() {
 
   return (
     <div
+      onClick={() => setVisible(false)}
       className={`splash-overlay ${fadeOut ? "splash-fade-out" : ""}`}
       style={{
         position: "fixed",

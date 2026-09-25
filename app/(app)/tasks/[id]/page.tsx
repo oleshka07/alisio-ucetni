@@ -76,7 +76,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
           <div className="pt-2 border-t border-border">
             <p className="text-xs text-muted-foreground mb-2">Přiložený dokument</p>
             <a
-              href={task.document.fileUrl}
+              href={`/api/documents/${task.document.id}/file`}
               target="_blank"
               className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent transition-colors"
             >

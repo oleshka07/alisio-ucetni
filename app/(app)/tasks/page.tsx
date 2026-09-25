@@ -102,7 +102,7 @@ function TaskGroup({
                     </Link>
                     {task.document && (
                       <a
-                        href={task.document.fileUrl}
+                        href={`/api/documents/${task.document.id}/file`}
                         target="_blank"
                         className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
                       >

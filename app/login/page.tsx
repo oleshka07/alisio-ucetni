@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Lock, User, Building2, Loader2, KeyRound, ArrowRight } from "lucide-react";
+import { Lock, Mail, User, Building2, Loader2, KeyRound, ArrowRight } from "lucide-react";
 
 type LoginMode = "accountant" | "client";
 
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<LoginMode>("accountant");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,7 +23,7 @@ export default function LoginPage() {
     try {
       const payload =
         mode === "accountant"
-          ? { mode: "accountant", password }
+          ? { mode: "user", email, password }
           : { mode: "client", code };
 
       const res = await fetch("/api/auth/login", {
@@ -38,7 +39,7 @@ export default function LoginPage() {
         return;
       }
 
-      if (data.role === "accountant") {
+      if (data.role === "owner" || data.role === "accountant") {
         router.push("/dashboard");
       } else {
         router.push("/portal");
@@ -83,7 +84,7 @@ export default function LoginPage() {
               }`}
             >
               <Building2 className="w-4 h-4" />
-              Účetní
+              Tým
             </button>
             <button
               onClick={() => { setMode("client"); setError(""); }}
@@ -101,20 +102,39 @@ export default function LoginPage() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="p-6 space-y-5">
             {mode === "accountant" ? (
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-2 uppercase tracking-wider">
-                  Heslo účetní
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Zadejte heslo..."
-                    autoFocus
-                    className="w-full pl-10 pr-4 py-3 text-sm rounded-xl border border-gray-200 bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 focus:bg-white transition-all placeholder:text-gray-300"
-                  />
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-2 uppercase tracking-wider">
+                    E-mail
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="vas@email.cz"
+                      autoFocus
+                      autoComplete="username"
+                      className="w-full pl-10 pr-4 py-3 text-sm rounded-xl border border-gray-200 bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 focus:bg-white transition-all placeholder:text-gray-300"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-2 uppercase tracking-wider">
+                    Heslo
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Zadejte heslo..."
+                      autoComplete="current-password"
+                      className="w-full pl-10 pr-4 py-3 text-sm rounded-xl border border-gray-200 bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 focus:bg-white transition-all placeholder:text-gray-300"
+                    />
+                  </div>
                 </div>
               </div>
             ) : (
@@ -150,7 +170,7 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading || (mode === "accountant" ? !password : code.length !== 6)}
+              disabled={loading || (mode === "accountant" ? !email || !password : code.length !== 6)}
               className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30"
             >
               {loading ? (

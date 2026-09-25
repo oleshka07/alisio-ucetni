@@ -3,6 +3,11 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
+  // Сід СТИРАЄ всі дані — лише для локальної розробки
+  if (process.env.ALLOW_SEED !== "1" || process.env.NODE_ENV === "production") {
+    console.error("Seed disabled. It deletes ALL data. Run with ALLOW_SEED=1 on a local dev database only.");
+    process.exit(1);
+  }
   console.log("🌱 Seeding database...");
 
   // Clean existing data

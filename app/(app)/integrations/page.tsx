@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
 import { Plug, ExternalLink, Lock } from "lucide-react";

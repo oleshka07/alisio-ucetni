@@ -11,16 +11,16 @@ datasource db {
 // ─── Клієнти (компанії/особи) ────────────────────────────────────────────────
 
 model Client {
-  id          String   @id @default(cuid())
-  name        String
-  type        String   // "company" | "person"
-  role        String   // "owner" | "director" | "employee"
-  color       String   @default("#6366f1") // accent color for UI
-  isActive    Boolean  @default(true)
-  accessCode  String?  @unique // 6-digit code for client portal login
+  id                  String    @id @default(cuid())
+  name                String
+  type                String // "company" | "person"
+  role                String // "owner" | "director" | "employee"
+  color               String    @default("#6366f1") // accent color for UI
+  isActive            Boolean   @default(true)
+  accessCode          String?   @unique // 6-digit code for client portal login
   accessCodeCreatedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   companyProfile   CompanyProfile?
   employeeProfile  EmployeeProfile?
@@ -30,110 +30,114 @@ model Client {
   documents        Document[]
   taxEvents        TaxEvent[]
   auditLogs        AuditLog[]
+  bankAccounts     BankAccount[]
+  transactions     Transaction[]
+  docRequests      DocumentRequest[]
+  docRules         DocRequirementRule[]
 }
 
 // ─── Дані роботодавця / компанії ─────────────────────────────────────────────
 
 model CompanyProfile {
-  id              String  @id @default(cuid())
-  clientId        String  @unique
-  client          Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  clientId String @unique
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  companyName     String?
-  ico             String? // IČO
-  dic             String? // DIČ / IČ DPH
-  street          String?
-  city            String?
-  zip             String?
-  country         String? @default("CZ")
-  contactPerson   String?
-  phone           String?
-  email           String?
-  dataBox         String? // datová schránka
-  bankAccount     String?
-  bankCode        String?
-  iban            String?
-  vatPayer        Boolean @default(false)
-  vatPeriod       String? // "monthly" | "quarterly"
+  companyName      String?
+  ico              String? // IČO
+  dic              String? // DIČ / IČ DPH
+  street           String?
+  city             String?
+  zip              String?
+  country          String? @default("CZ")
+  contactPerson    String?
+  phone            String?
+  email            String?
+  dataBox          String? // datová schránka
+  bankAccount      String?
+  bankCode         String?
+  iban             String?
+  vatPayer         Boolean @default(false)
+  vatPeriod        String? // "monthly" | "quarterly"
   registrationDate String?
-  legalForm       String? // s.r.o., a.s., OSVČ ...
+  legalForm        String? // s.r.o., a.s., OSVČ ...
   businessActivity String?
-  notes           String?
+  notes            String?
 }
 
 // ─── Дані працівника/директора ────────────────────────────────────────────────
 
 model EmployeeProfile {
-  id                String  @id @default(cuid())
-  clientId          String  @unique
-  client            Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  clientId String @unique
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   // Osobní údaje
-  title             String?
-  firstName         String?
-  lastName          String?
-  birthSurname      String?
-  birthDate         String?
-  birthPlace        String?
-  birthCountry      String?
-  nationality       String?
-  citizenship       String?
-  birthNumber       String? // rodné číslo
-  oic               String? // OIČ
-  idCardNumber      String?
-  gender            String? // "M" | "F"
+  title        String?
+  firstName    String?
+  lastName     String?
+  birthSurname String?
+  birthDate    String?
+  birthPlace   String?
+  birthCountry String?
+  nationality  String?
+  citizenship  String?
+  birthNumber  String? // rodné číslo
+  oic          String? // OIČ
+  idCardNumber String?
+  gender       String? // "M" | "F"
 
   // Trvalá adresa
-  permStreet        String?
-  permCity          String?
-  permZip           String?
-  permCountry       String?
+  permStreet  String?
+  permCity    String?
+  permZip     String?
+  permCountry String?
 
   // Přechodná adresa
-  tempStreet        String?
-  tempCity          String?
-  tempZip           String?
-  tempCountry       String?
+  tempStreet  String?
+  tempCity    String?
+  tempZip     String?
+  tempCountry String?
 
   // Kontakt
-  phone             String?
-  email             String?
-  bankAccount       String?
-  bankCode          String?
-  iban              String?
-  dataBox           String?
+  phone       String?
+  email       String?
+  bankAccount String?
+  bankCode    String?
+  iban        String?
+  dataBox     String?
 
   // Vzdělání
-  education         String? // kód vzdělání
+  education String? // kód vzdělání
 
   // Pro cizince
-  isForeigner       Boolean @default(false)
-  foreignerType     String? // "EU" | "ThirdCountry"
-  freeAccessReason  String?
-  permitType        String?
-  docType           String? // "Passport" | "ID" | "Other"
-  docNumber         String?
-  docCountry        String?
-  docValidUntil     String?
+  isForeigner            Boolean @default(false)
+  foreignerType          String? // "EU" | "ThirdCountry"
+  freeAccessReason       String?
+  permitType             String?
+  docType                String? // "Passport" | "ID" | "Other"
+  docNumber              String?
+  docCountry             String?
+  docValidUntil          String?
   residenceConfirmNumber String?
-  residenceStreet   String?
-  residenceCity     String?
-  residenceZip      String?
-  hasCzBirthNumber  Boolean @default(true)
-  healthInsuranceName String?
-  healthInsuranceNumber String?
-  hasInsuranceCard  Boolean @default(true)
-  socialInsuranceNumber String?
-  taxStatus         String? // "Resident" | "NonResident"
-  notes             String?
+  residenceStreet        String?
+  residenceCity          String?
+  residenceZip           String?
+  hasCzBirthNumber       Boolean @default(true)
+  healthInsuranceName    String?
+  healthInsuranceNumber  String?
+  hasInsuranceCard       Boolean @default(true)
+  socialInsuranceNumber  String?
+  taxStatus              String? // "Resident" | "NonResident"
+  notes                  String?
 }
 
 // ─── Daňové a pojistné údaje ──────────────────────────────────────────────────
 
 model TaxProfile {
-  id                    String  @id @default(cuid())
-  clientId              String  @unique
-  client                Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  clientId String @unique
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   wantsYearlySettlement Boolean @default(true)
   wantsBasicTaxCredit   Boolean @default(true)
@@ -152,64 +156,86 @@ model TaxProfile {
 // ─── Pojistné a ostatní ───────────────────────────────────────────────────────
 
 model InsuranceProfile {
-  id                          String  @id @default(cuid())
-  clientId                    String  @unique
-  client                      Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  clientId String @unique
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  healthInsuranceCode         String?
-  healthInsuranceName         String?
-  invalidityDegree            String? // "I" | "II" | "III"
-  otherEmployment             Boolean @default(false)
-  wageDeductions              Boolean @default(false) // exekuce
-  isPensioner                 Boolean @default(false)
-  pensionType                 String?
-  isStudent                   Boolean @default(false)
-  maternityBenefit            Boolean @default(false)
-  parentalBenefit             Boolean @default(false)
-  isJobSeeker                 Boolean @default(false)
-  isCaregiving                Boolean @default(false)
-  isChildcareUnder7           Boolean @default(false)
+  healthInsuranceCode          String?
+  healthInsuranceName          String?
+  invalidityDegree             String? // "I" | "II" | "III"
+  otherEmployment              Boolean @default(false)
+  wageDeductions               Boolean @default(false) // exekuce
+  isPensioner                  Boolean @default(false)
+  pensionType                  String?
+  isStudent                    Boolean @default(false)
+  maternityBenefit             Boolean @default(false)
+  parentalBenefit              Boolean @default(false)
+  isJobSeeker                  Boolean @default(false)
+  isCaregiving                 Boolean @default(false)
+  isChildcareUnder7            Boolean @default(false)
   anotherEmployerWithInsurance Boolean @default(false)
-  anotherEmployerName         String?
-  isSelfEmployedMinBase       Boolean @default(false)
-  notes                       String?
+  anotherEmployerName          String?
+  isSelfEmployedMinBase        Boolean @default(false)
+  notes                        String?
 }
 
 // ─── Документи ────────────────────────────────────────────────────────────────
 
 model Document {
-  id          String   @id @default(cuid())
-  clientId    String
-  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  filename    String
+  id           String   @id @default(cuid())
+  clientId     String?
+  client       Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  filename     String
   originalName String
-  fileSize    Int?
-  mimeType    String?
-  fileUrl     String   // path or URL
-  uploadedBy  String   // "client" | "accountant"
-  description String?
-  createdAt   DateTime @default(now())
+  fileSize     Int?
+  mimeType     String?
+  fileUrl      String // blob URL або local:<key>
+  uploadedBy   String // "client" | "accountant" | "owner" | "telegram" | "email"
+  description  String?
+  createdAt    DateTime @default(now())
 
-  task        Task?
+  // ── Нове: документи до платежів ──
+  source                String? // "web" | "telegram" | "email" | "accountant"
+  docType               String? // invoice_in | invoice_out | contract | cmr | customs | payslip | receipt | other
+  sha256                String? // дедуп: той самий файл уже надсилали
+  aiStatus              String    @default("pending") // pending | done | failed | skipped
+  extracted             Json?
+  extractedAmount       Decimal?  @db.Decimal(14, 2)
+  extractedCurrency     String?
+  extractedDate         DateTime?
+  extractedVs           String?
+  extractedIco          String?
+  extractedNumber       String?
+  extractedCounterparty String?
+
+  task     Task?
+  links    TransactionDocument[]
+  requests DocumentRequest[]     @relation("RequestFulfilledBy")
+
+  @@index([sha256])
+  @@index([clientId, createdAt])
 }
 
 // ─── Завдання ─────────────────────────────────────────────────────────────────
 
 model Task {
-  id          String   @id @default(cuid())
-  clientId    String
-  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  documentId  String?  @unique
-  document    Document? @relation(fields: [documentId], references: [id])
-  title       String
-  description String?
-  status      String   @default("pending") // "pending" | "in_progress" | "done" | "cancelled"
-  priority    String   @default("normal")  // "low" | "normal" | "high"
-  dueDate     DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdBy   String   @default("accountant") // "client" | "accountant"
-  notes       String?
+  id             String          @id @default(cuid())
+  clientId       String
+  client         Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  documentId     String?         @unique
+  document       Document?       @relation(fields: [documentId], references: [id])
+  title          String
+  description    String?
+  status         String          @default("pending") // "pending" | "in_progress" | "done" | "cancelled"
+  priority       String          @default("normal") // "low" | "normal" | "high"
+  dueDate        DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  createdBy      String          @default("accountant") // "client" | "accountant" | "system"
+  notes          String?
+  source         String? // databox | email | calendar | manual
+  lastRemindedAt DateTime?
+  dataBoxMessage DataBoxMessage?
 }
 
 // ─── Податкові події / календар ───────────────────────────────────────────────
@@ -220,13 +246,13 @@ model TaxEvent {
   client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   title       String
   description String?
-  eventType   String   // "tax_payment" | "report" | "deadline" | "reconciliation"
+  eventType   String // "tax_payment" | "report" | "deadline" | "reconciliation"
   dueDate     DateTime
   amount      Float?
   currency    String   @default("CZK")
   status      String   @default("upcoming") // "upcoming" | "paid" | "overdue" | "cancelled"
   isPredicted Boolean  @default(false)
-  period      String?  // "2025-01" "2025-Q1" "2025"
+  period      String? // "2025-01" "2025-Q1" "2025"
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -234,28 +260,244 @@ model TaxEvent {
 // ─── API інтеграції (для майбутнього) ─────────────────────────────────────────
 
 model ApiIntegration {
-  id          String   @id @default(cuid())
-  name        String   // "fakturoid" | "pohoda" | "money_s3" | "moje_id" etc.
+  id          String    @id @default(cuid())
+  name        String // "fakturoid" | "pohoda" | "money_s3" | "moje_id" etc.
   displayName String
-  isActive    Boolean  @default(false)
-  config      String?  // JSON string with integration config
+  isActive    Boolean   @default(false)
+  config      String? // JSON string with integration config
   lastSync    DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 // ─── Аудит лог змін профілю ───────────────────────────────────────────────────
 
 model AuditLog {
-  id          String   @id @default(cuid())
-  clientId    String
-  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  action      String   // "profile_updated" | "document_uploaded" | "task_status_changed"
-  changedBy   String   // "accountant" | "client"
-  section     String?  // "company" | "employee" | "tax" | "insurance" | "basic"
-  fieldName   String?  // specific field that changed
-  oldValue    String?  // previous value (JSON for complex)
-  newValue    String?  // new value (JSON for complex)
-  summary     String?  // human-readable summary of the change
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  action    String // "profile_updated" | "document_uploaded" | "task_status_changed"
+  changedBy String // "accountant" | "client"
+  section   String? // "company" | "employee" | "tax" | "insurance" | "basic"
+  fieldName String? // specific field that changed
+  oldValue  String? // previous value (JSON for complex)
+  newValue  String? // new value (JSON for complex)
+  summary   String? // human-readable summary of the change
+  createdAt DateTime @default(now())
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Фаза 1: користувачі, банк, операції, документи до платежів
+// ═══════════════════════════════════════════════════════════════════════════
+
+model User {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  name           String
+  role           String // "owner" | "accountant"
+  passwordHash   String
+  isActive       Boolean   @default(true)
+  telegramChatId String?   @unique
+  tgAwaitingTxId String? // наступний файл з Telegram прив'язати до цієї операції
+  lastLoginAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  requests      DocumentRequest[]
+  notifications NotificationLog[]
+}
+
+model BankAccount {
+  id            String  @id @default(cuid())
+  clientId      String
+  client        Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name          String
+  accountNumber String? // 123456789/0800
+  iban          String?
+  currency      String  @default("CZK")
+  isActive      Boolean @default(true)
+  source        String  @default("imap_camt") // imap_camt | fio_api | manual
+
+  imapHost        String?
+  imapPort        Int?    @default(993)
+  imapUser        String?
+  imapPasswordEnc String?
+  imapFolder      String? @default("INBOX")
+  senderFilter    String?
+  lastUid         Int?
+  fioTokenEnc     String?
+
+  lastSyncAt DateTime?
+  lastError  String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  statements   BankStatement[]
+  transactions Transaction[]
+}
+
+model BankStatement {
+  id             String      @id @default(cuid())
+  bankAccountId  String
+  bankAccount    BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  source         String // imap | fio | upload
+  externalId     String // imap:<uid>:<file> | fio:<datum> | upload:<sha>
+  fileName       String?
+  periodFrom     DateTime?
+  periodTo       DateTime?
+  openingBalance Decimal?    @db.Decimal(14, 2)
+  closingBalance Decimal?    @db.Decimal(14, 2)
+  txCount        Int         @default(0)
+  importedCount  Int         @default(0)
+  createdAt      DateTime    @default(now())
+
+  transactions Transaction[]
+
+  @@unique([bankAccountId, externalId])
+}
+
+model Transaction {
+  id            String         @id @default(cuid())
+  clientId      String
+  client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  bankAccountId String?
+  bankAccount   BankAccount?   @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  statementId   String?
+  statement     BankStatement? @relation(fields: [statementId], references: [id], onDelete: SetNull)
+
+  bookingDate         DateTime
+  amount              Decimal  @db.Decimal(14, 2) // + прихід, − видаток
+  currency            String   @default("CZK")
+  counterpartyName    String?
+  counterpartyAccount String?
+  variableSymbol      String?
+  constantSymbol      String?
+  specificSymbol      String?
+  message             String?
+  externalId          String? // ID руху в банку
+  dedupHash           String
+
+  category        String? // customer | supplier | tax | salary | internal | fee | ads_foreign | import | other
+  requiredDocs    String[]  @default([])
+  docHint         String?
+  docStatus       String    @default("missing") // missing | partial | complete | not_needed
+  docStatusManual Boolean   @default(false) // «не потрібно» виставлено вручну
+  ruleId          String?
+  note            String?
+  reviewedAt      DateTime?
+  snoozedUntil    DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  links    TransactionDocument[]
+  requests DocumentRequest[]
+
+  @@unique([clientId, dedupHash])
+  @@index([clientId, bookingDate])
+  @@index([docStatus])
+}
+
+model TransactionDocument {
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  documentId    String
+  document      Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  linkedBy      String // owner | accountant | auto | telegram
+  createdAt     DateTime    @default(now())
+
+  @@id([transactionId, documentId])
+  @@index([documentId])
+}
+
+model DocRequirementRule {
+  id                   String   @id @default(cuid())
+  clientId             String? // null = для всіх компаній
+  client               Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name                 String
+  priority             Int      @default(100) // менше = раніше
+  isActive             Boolean  @default(true)
+  direction            String   @default("any") // in | out | any
+  counterpartyContains String?
+  accountContains      String?
+  messageContains      String?
+  minAbsAmount         Decimal? @db.Decimal(14, 2)
+  maxAbsAmount         Decimal? @db.Decimal(14, 2)
+  category             String?
+  requiredDocs         String[] @default([])
+  notNeeded            Boolean  @default(false)
+  hint                 String?
+  isSystem             Boolean  @default(false)
+  createdAt            DateTime @default(now())
+}
+
+model DocumentRequest {
+  id             String       @id @default(cuid())
+  clientId       String
+  client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  transactionId  String?
+  transaction    Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  requestedById  String?
+  requestedBy    User?        @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+  docType        String?
+  message        String
+  status         String       @default("open") // open | fulfilled | cancelled
+  fulfilledById  String?
+  fulfilledBy    Document?    @relation("RequestFulfilledBy", fields: [fulfilledById], references: [id], onDelete: SetNull)
+  fulfilledAt    DateTime?
+  remindCount    Int          @default(0)
+  lastRemindedAt DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([status])
+}
+
+model DocumentInbox {
+  id              String    @id @default(cuid())
+  name            String
+  kind            String    @default("documents") // documents | databox (лише сповіщення ISDS)
+  clientId        String? // компанія за замовчуванням
+  imapHost        String
+  imapPort        Int       @default(993)
+  imapUser        String
+  imapPasswordEnc String
+  imapFolder      String    @default("INBOX")
+  senderFilter    String?
+  lastUid         Int?
+  isActive        Boolean   @default(true)
+  lastSyncAt      DateTime?
+  lastError       String?
+  createdAt       DateTime  @default(now())
+}
+
+model NotificationLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  channel   String   @default("telegram")
+  kind      String // digest | request | new_document | reminder
+  refId     String?
+  text      String
+  ok        Boolean  @default(true)
+  error     String?
+  createdAt DateTime @default(now())
+
+  @@index([kind, refId])
+}
+
+// Сповіщення з датових схранок (ISDS), що приходять на пошту
+model DataBoxMessage {
+  id           String    @id @default(cuid())
+  messageId    String    @unique // ID datové zprávy
+  dataBoxId    String? // ID schránky-příjemce
+  dataBoxName  String?
+  clientId     String?
+  sender       String?
+  subject      String? // Věc
+  deliveredAt  DateTime? // dodání do schránky
+  fictionAt    DateTime? // + 10 dní = doručení fikcí
+  emailSubject String?
+  rawText      String?
+  taskId       String?   @unique
+  task         Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  createdAt    DateTime  @default(now())
 }

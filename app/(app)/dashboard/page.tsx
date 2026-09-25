@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate, statusLabel, priorityLabel } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import FinanceSummary from "@/components/finance/FinanceSummary";
 import {
   Building2,
   User,
@@ -59,6 +60,8 @@ export default async function DashboardPage() {
           {new Intl.DateTimeFormat("cs-CZ", { dateStyle: "full" }).format(new Date())}
         </p>
       </div>
+
+      <FinanceSummary />
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

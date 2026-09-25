@@ -76,7 +76,7 @@ export default async function PortalTasksPage() {
 
                 {task.document && (
                   <a
-                    href={task.document.fileUrl}
+                    href={`/api/documents/${task.document.id}/file`}
                     target="_blank"
                     className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent transition-colors"
                   >

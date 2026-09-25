@@ -16,6 +16,8 @@ import {
   Plug,
   LogOut,
   Loader2,
+  Landmark,
+  Inbox,
 } from "lucide-react";
 
 type Client = {
@@ -28,6 +30,8 @@ type Client = {
 
 const navItems = [
   { href: "/dashboard", label: "Přehled", icon: LayoutDashboard },
+  { href: "/transactions", label: "Platby a doklady", icon: Landmark },
+  { href: "/inbox", label: "Nepřiřazené doklady", icon: Inbox },
   { href: "/tasks", label: "Úkoly", icon: CheckSquare },
   { href: "/documents", label: "Dokumenty", icon: FileText },
   { href: "/calendar", label: "Kalendář daní", icon: Calendar },

@@ -167,7 +167,7 @@ export default async function PortalDashboard() {
             {documents.map((doc) => (
               <a
                 key={doc.id}
-                href={doc.fileUrl}
+                href={`/api/documents/${doc.id}/file`}
                 target="_blank"
                 className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
               >

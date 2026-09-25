@@ -45,3 +45,6 @@ prisma/dev.db
 # uploads
 /public/uploads/*
 !/public/uploads/.gitkeep
+
+# local document storage (FILES_DIR default)
+/data/

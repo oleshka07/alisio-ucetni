@@ -1,0 +1,10 @@
+# Alisio Účetnictví — додати в `crontab -e` (root)
+CRON_TZ=Europe/Prague
+# Виписки + пошта (фактури, датові схранки): кожні 15 хв з 6:00 до 22:59
+*/15 6-22 * * * /root/projects/alisio-ucetni/deploy/cron.sh sync >> /var/log/alisio-ucetni-cron.log 2>&1
+# Дедлайни ≤ 2 дні (фікція доручення, податки): щодня 8:40
+40 8 * * * /root/projects/alisio-ucetni/deploy/cron.sh reminders >> /var/log/alisio-ucetni-cron.log 2>&1
+# Дайджест «чого бракує»: понеділок і четвер 8:55
+55 8 * * 1,4 /root/projects/alisio-ucetni/deploy/cron.sh digest >> /var/log/alisio-ucetni-cron.log 2>&1
+# Бекап бази і файлів: щодня 3:15
+15 3 * * * /root/projects/alisio-ucetni/deploy/backup.sh >> /var/log/alisio-ucetni-backup.log 2>&1

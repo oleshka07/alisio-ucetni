@@ -315,7 +315,7 @@ async function listDocuments(args: Record<string, unknown>): Promise<string> {
       id: d.id,
       name: d.originalName,
       size: d.fileSize,
-      clientName: d.client.name,
+      clientName: d.client?.name ?? null,
       uploadedBy: d.uploadedBy,
       description: d.description,
       createdAt: d.createdAt,

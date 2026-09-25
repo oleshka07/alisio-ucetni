@@ -1,0 +1,50 @@
+name: CI & deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: acc
+          POSTGRES_PASSWORD: acc
+          POSTGRES_DB: acc
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    env:
+      POSTGRES_PRISMA_URL: postgresql://acc:acc@localhost:5432/acc
+      POSTGRES_URL_NON_POOLING: postgresql://acc:acc@localhost:5432/acc
+      AUTH_SECRET: ci-secret-0123456789abcdef0123456789abcdef
+      ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000001"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx prisma migrate deploy
+      - run: npx tsc --noEmit
+      - run: npm test
+      - run: npm run build
+
+  # Деплой на Hetzner. Вмикається змінною репозиторію DEPLOY_ENABLED=true
+  # і секретами HETZNER_HOST, HETZNER_SSH_KEY (див. deploy/README.md).
+  deploy:
+    needs: check
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: root
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          command_timeout: 15m
+          script: cd /root/projects/alisio-ucetni && bash deploy/deploy.sh

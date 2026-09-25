@@ -53,12 +53,16 @@ export default async function DocumentsPage({
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{doc.originalName}</p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <Link
-                          href={`/clients/${doc.client.id}`}
-                          className="text-xs text-primary hover:underline"
-                        >
-                          {doc.client.name}
-                        </Link>
+                        {doc.client ? (
+                          <Link
+                            href={`/clients/${doc.client.id}`}
+                            className="text-xs text-primary hover:underline"
+                          >
+                            {doc.client.name}
+                          </Link>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Nepřiřazeno</span>
+                        )}
                         <span className="text-xs text-muted-foreground">·</span>
                         <span className="text-xs text-muted-foreground">{formatFileSize(doc.fileSize)}</span>
                         <span className="text-xs text-muted-foreground">·</span>
@@ -75,7 +79,7 @@ export default async function DocumentsPage({
                     <div className="flex items-center gap-3 shrink-0">
                       <p className="text-xs text-muted-foreground">{formatDate(doc.createdAt)}</p>
                       <a
-                        href={doc.fileUrl}
+                        href={`/api/documents/${doc.id}/file`}
                         target="_blank"
                         className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                         title="Stáhnout"
