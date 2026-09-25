@@ -65,7 +65,7 @@ npm run build
 
 ### 3. Сервер Hetzner
 Кроки 1–5 з `deploy/README.md`. Порт 3002 має бути вільний: `ss -ltnp | grep 3002`. Перевірте, чим проксіюється PMS (nginx чи Caddy), і зробіть так само.
-Потрібен DNS A-запис `ucetni.swipescape.eu → 46.225.132.220`. Якщо не створений — попросіть Олега.
+Потрібен DNS A-запис `ucetni.rozum.one → 46.225.132.220`. Якщо не створений — попросіть Олега.
 
 **Не чіпати** сервіс `alisio-pms`, його порт 3001, базу і crontab-записи PMS.
 
@@ -73,7 +73,7 @@ npm run build
 Крок 6 з `deploy/README.md`. Токени (Telegram, OpenAI) Олег вносить у `.env` на сервері сам.
 
 ### 5. Приймальна перевірка
-- [ ] `https://ucetni.swipescape.eu/login` відкривається, HTTPS валідний
+- [ ] `https://ucetni.rozum.one/login` відкривається, HTTPS валідний
 - [ ] Вхід власника, зміна пароля
 - [ ] Telegram: webhook встановлено, `/start` через «Připojit Telegram» → «✅ Підключено»
 - [ ] Банківський рахунок KB: Test OK → Načíst → платежі з'являються; повторне Načíst не дублює
