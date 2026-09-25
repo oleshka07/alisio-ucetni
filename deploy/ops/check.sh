@@ -15,8 +15,8 @@ done
 grep -E '^APP_URL=' .env
 echo "== db"; sudo -u postgres psql -d alisio_ucetni -tAc 'select count(*) || '"' users'"' from "User"'
 echo "== cron"; crontab -l | grep -c alisio-ucetni
-echo "== sync (ручний прогін)"; bash deploy/cron.sh sync 2>&1 | tail -3 && echo "sync exit OK"
-echo "== backup"; bash deploy/backup.sh >/dev/null 2>&1 && echo "backup OK" || echo "backup FAIL"; ls -la /root/backups/alisio-ucetni 2>/dev/null | tail -3
+echo "== sync (ручний прогін)"; bash deploy/cron.sh sync 2>&1 | tail -3; echo "sync exit ${PIPESTATUS[0]}"
+echo "== backup"; bash deploy/backup.sh 2>&1 | sed -E 's#//[^@ ]*@#//***@#g' | tail -3; ls -la /root/backups/alisio-ucetni 2>/dev/null | tail -3
 echo "== files dir"; ls -ld /var/lib/alisio-ucetni/files
 echo "== app log (20)"; journalctl -u alisio-ucetni -n 20 --no-pager -o cat
 echo "== disk"; df -h / | tail -1
