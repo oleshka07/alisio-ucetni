@@ -9,6 +9,14 @@ const STATIC_PREFIXES = ["/_next", "/favicon.ico", "/icons", "/images"];
 // API, доступні клієнтському порталу (6-значний код)
 const CLIENT_ALLOWED_API = ["/api/documents/upload", "/api/tasks/", "/api/clients/", "/api/portal"];
 
+// За nginx request.url містить внутрішню адресу (localhost:3012), тож редірект будуємо з заголовків проксі.
+function publicUrl(path: string, request: NextRequest) {
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  if (!host) return new URL(path, request.url);
+  const proto = request.headers.get("x-forwarded-proto") ?? request.nextUrl.protocol.replace(":", "");
+  return new URL(path, `${proto}://${host}`);
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -21,12 +29,12 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(publicUrl("/login", request));
   }
 
   if (session.role === "owner" || session.role === "accountant") {
     if (pathname.startsWith("/portal") || pathname === "/") {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+      return NextResponse.redirect(publicUrl("/dashboard", request));
     }
     return NextResponse.next();
   }
@@ -40,7 +48,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next(); // перевірка власника — у хендлері
   }
   if (!pathname.startsWith("/api/")) {
-    return NextResponse.redirect(new URL("/portal", request.url));
+    return NextResponse.redirect(publicUrl("/portal", request));
   }
   return NextResponse.json({ error: "Access denied" }, { status: 403 });
 }
