@@ -4,7 +4,7 @@
 | --- | --- |
 | Сервер | `root@46.225.132.220` |
 | Папка | `/root/projects/alisio-ucetni` |
-| Порт | `3002` (PMS — 3001) |
+| Порт | `3012` (PMS — 3001; 3002 зайнятий іншим Next.js) |
 | Сервіс | `alisio-ucetni` (systemd) |
 | Домен | `ucetni.rozum.one` (A-запис → 46.225.132.220; `rozum.one` сам дивиться на інший сервер) |
 | База | Postgres 16 на сервері, БД і користувач `alisio_ucetni` |
@@ -85,7 +85,7 @@ nginx -t && systemctl reload nginx
 certbot --nginx -d ucetni.rozum.one
 ```
 
-Якщо PMS стоїть за Caddy чи іншим проксі, а не nginx, додайте туди аналогічний reverse proxy на `127.0.0.1:3002`.
+Якщо PMS стоїть за Caddy чи іншим проксі, а не nginx, додайте туди аналогічний reverse proxy на `127.0.0.1:3012`.
 
 ## 5. Фонові задачі і бекап
 

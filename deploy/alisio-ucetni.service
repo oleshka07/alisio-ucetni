@@ -6,11 +6,11 @@ Wants=postgresql.service
 [Service]
 Type=simple
 WorkingDirectory=/root/projects/alisio-ucetni
-ExecStart=/usr/bin/node node_modules/.bin/next start -p 3002 -H 127.0.0.1
+ExecStart=/usr/bin/node node_modules/.bin/next start -p 3012 -H 127.0.0.1
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
-Environment=PORT=3002
+Environment=PORT=3012
 Environment=TZ=Europe/Prague
 
 StandardOutput=journal
