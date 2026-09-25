@@ -5,4 +5,4 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 JOB="${1:?job name}"
 SECRET=$(grep -E '^CRON_SECRET=' .env | head -1 | cut -d= -f2- | tr -d '"')
-curl -fsS -m 170 -H "Authorization: Bearer ${SECRET}" "http://127.0.0.1:3002/api/cron/${JOB}" > /dev/null
+curl -fsS -m 170 -H "Authorization: Bearer ${SECRET}" "http://127.0.0.1:3012/api/cron/${JOB}" > /dev/null
