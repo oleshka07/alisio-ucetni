@@ -1,11 +1,11 @@
-export function fmtAmount(amount: number | string | { toString(): string }, currency = "CZK"): string {
+export function fmtAmount(amount: number | string | { toString(): string }, currency = "CZK", signed = true): string {
   const n = Number(amount);
   const s = new Intl.NumberFormat("cs-CZ", {
     minimumFractionDigits: Number.isInteger(n) ? 0 : 2,
     maximumFractionDigits: 2,
   }).format(Math.abs(n));
   const sym = currency === "CZK" ? "Kč" : currency;
-  return `${n < 0 ? "−" : "+"}${s} ${sym}`;
+  return `${signed ? (n < 0 ? "−" : "+") : ""}${s} ${sym}`;
 }
 
 export function fmtDate(d: Date | string | null | undefined): string {

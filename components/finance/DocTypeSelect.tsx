@@ -3,8 +3,9 @@
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { DOC_TYPES } from "@/lib/docs/types";
+import { cn } from "@/lib/utils";
 
-export default function DocTypeSelect({ documentId, value }: { documentId: string; value: string }) {
+export default function DocTypeSelect({ documentId, value, className }: { documentId: string; value: string; className?: string }) {
   const router = useRouter();
   async function change(docType: string) {
     const res = await fetch(`/api/documents/${documentId}`, {
@@ -16,7 +17,7 @@ export default function DocTypeSelect({ documentId, value }: { documentId: strin
     router.refresh();
   }
   return (
-    <select defaultValue={value} onChange={(e) => change(e.target.value)} className="text-xs border border-border rounded-md px-2 py-1 bg-background">
+    <select defaultValue={value} onChange={(e) => change(e.target.value)} className={cn("text-xs border border-border rounded-md px-2 py-1 bg-background", className)}>
       <option value="">Typ nerozpoznán</option>
       {Object.entries(DOC_TYPES).map(([k, v]) => (
         <option key={k} value={k}>{v.cs}</option>
