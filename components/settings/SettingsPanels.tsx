@@ -153,7 +153,7 @@ function AccountForm({ clients, initial, id, onDone }: { clients: Client[]; init
       <Field l="IBAN"><input value={v.iban} onChange={set("iban")} className={input} /></Field>
       <Field l="Zdroj výpisů">
         <select value={v.source} onChange={set("source")} className={input}>
-          <option value="imap_camt">E-mail (CAMT.053 XML) — KB, ČS, …</option>
+          <option value="imap_camt">E-mail (CAMT.053 XML nebo PDF výpis KB)</option>
           <option value="fio_api">Fio API (token)</option>
           <option value="manual">Jen ruční nahrání</option>
         </select>
@@ -247,8 +247,8 @@ export function BankAccountsPanel({ clients, accounts, isOwner }: { clients: Cli
               </div>
             )}
             <details className="mt-2">
-              <summary className="text-xs text-muted-foreground cursor-pointer inline-flex items-center gap-1"><Upload className="w-3 h-3" /> Nahrát výpis ručně (CAMT.053 XML)</summary>
-              <div className="mt-2"><FileDrop url={`/api/bank-accounts/${a.id}/upload`} compact accept=".xml" label="Soubor výpisu .xml" /></div>
+              <summary className="text-xs text-muted-foreground cursor-pointer inline-flex items-center gap-1"><Upload className="w-3 h-3" /> Nahrát výpis ručně (CAMT.053 XML nebo PDF KB)</summary>
+              <div className="mt-2"><FileDrop url={`/api/bank-accounts/${a.id}/upload`} compact accept=".xml,.pdf" label="Soubor výpisu .xml / .pdf" /></div>
             </details>
           </div>
         ))}

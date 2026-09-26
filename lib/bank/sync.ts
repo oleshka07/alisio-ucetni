@@ -3,8 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { decryptSecret, sha256Hex } from "@/lib/crypto";
 import { fetchNewMail } from "@/lib/mail/imap";
 import { parseCamt053, looksLikeCamt } from "./camt";
+import { pdfItems, looksLikeKbPdf, parseKbStatementItems } from "./kb-pdf";
+import type { ParsedStatement } from "./types";
 import { fetchFioPeriod } from "./fio";
-import { importStatement, resolveAccountForStatement } from "./import";
+import { importStatement, resolveAccountForStatement, sameAccount } from "./import";
 import { matchUnassignedDocuments } from "@/lib/docs/ingest";
 import { notifyOwners, txLine } from "@/lib/telegram/notify";
 import { esc } from "@/lib/telegram/api";
@@ -36,12 +38,16 @@ async function syncImap(account: BankAccount, report: SyncReport) {
 
   for (const mail of res.mails) {
     for (const att of mail.attachments) {
-      const name = att.filename || "statement.xml";
-      const isXml = /xml/i.test(att.contentType || "") || /\.xml$/i.test(name);
-      if (!isXml) continue;
-      const content = att.content.toString("utf8");
-      if (!looksLikeCamt(content)) continue;
-      const statements = await parseCamt053(content);
+      const name = att.filename || "statement";
+      let statements: ParsedStatement[];
+      try {
+        const parsed = await parseStatementFile(name, att.contentType || "", att.content);
+        if (!parsed) continue;
+        statements = parsed;
+      } catch (e) {
+        report.notes.push(`Výpis ${name}: ${e instanceof Error ? e.message : String(e)}`);
+        continue;
+      }
       for (const [i, st] of statements.entries()) {
         const target = await resolveAccountForStatement(account, st);
         if (!target) {
@@ -103,11 +109,31 @@ export async function syncAllBankAccounts(): Promise<SyncReport[]> {
   return out;
 }
 
-/** Ручне завантаження файлу виписки (CAMT.053 XML). */
-export async function importUploadedStatement(account: BankAccount, fileName: string, content: Buffer) {
+/**
+ * Розпізнає файл виписки: CAMT.053 XML або PDF-виписка KB.
+ * null — файл не схожий на виписку (звичайне вкладення); помилка — схожий, але не розібрався.
+ */
+export async function parseStatementFile(name: string, contentType: string, content: Buffer): Promise<ParsedStatement[] | null> {
+  const isPdf = content.subarray(0, 5).toString("latin1") === "%PDF-";
+  if (isPdf) {
+    const items = await pdfItems(content);
+    return looksLikeKbPdf(items) ? [parseKbStatementItems(items)] : null;
+  }
+  const isXml = /xml/i.test(contentType) || /\.xml$/i.test(name) || content.subarray(0, 100).toString("utf8").includes("<?xml");
+  if (!isXml) return null;
   const text = content.toString("utf8");
-  if (!looksLikeCamt(text)) throw new Error("Soubor není výpis CAMT.053 (XML)");
-  const statements = await parseCamt053(text);
+  return looksLikeCamt(text) ? parseCamt053(text) : null;
+}
+
+/** Ручне завантаження файлу виписки (CAMT.053 XML або PDF KB). */
+export async function importUploadedStatement(account: BankAccount, fileName: string, content: Buffer) {
+  const statements = await parseStatementFile(fileName, "", content);
+  if (!statements) throw new Error("Soubor není výpis CAMT.053 (XML) ani PDF výpis Komerční banky");
+  for (const st of statements) {
+    if (!sameAccount(account, st)) {
+      throw new Error(`Výpis patří k účtu ${st.accountNumber || st.iban} (${st.currency}), ne k účtu „${account.name}“`);
+    }
+  }
   let imported = 0;
   let total = 0;
   for (const [i, st] of statements.entries()) {
