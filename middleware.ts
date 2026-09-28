@@ -9,12 +9,18 @@ const STATIC_PREFIXES = ["/_next", "/favicon.ico", "/icons", "/images"];
 // API, доступні клієнтському порталу (6-значний код)
 const CLIENT_ALLOWED_API = ["/api/documents/upload", "/api/tasks/", "/api/clients/", "/api/portal"];
 
-// За nginx request.url містить внутрішню адресу (localhost:3012), тож редірект будуємо з заголовків проксі.
+// За nginx request.url містить внутрішню адресу (localhost:3012). Публічну адресу беремо з APP_URL,
+// а не із заголовків запиту: X-Forwarded-Host може підставити будь-хто, і редірект повів би на чужий домен.
+const APP_ORIGIN = (() => {
+  try {
+    return process.env.APP_URL ? new URL(process.env.APP_URL).origin : null;
+  } catch {
+    return null;
+  }
+})();
+
 function publicUrl(path: string, request: NextRequest) {
-  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
-  if (!host) return new URL(path, request.url);
-  const proto = request.headers.get("x-forwarded-proto") ?? request.nextUrl.protocol.replace(":", "");
-  return new URL(path, `${proto}://${host}`);
+  return new URL(path, APP_ORIGIN ?? request.url);
 }
 
 export async function middleware(request: NextRequest) {

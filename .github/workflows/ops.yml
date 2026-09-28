@@ -20,6 +20,8 @@ jobs:
         env:
           HOST: ${{ secrets.HETZNER_HOST || '46.225.132.220' }}
           KEY: ${{ secrets.HETZNER_SSH_KEY }}
+          # Закріплений ключ сервера: секрет HETZNER_KNOWN_HOSTS, інакше deploy/ops/known_hosts (публічний ключ — не секрет)
+          KNOWN_HOSTS: ${{ secrets.HETZNER_KNOWN_HOSTS }}
           SCRIPT: ${{ inputs.script }}
         run: |
           case "$SCRIPT" in *[!a-z0-9_-]*|"") echo "bad script name"; exit 1;; esac
@@ -27,4 +29,5 @@ jobs:
           test -n "$KEY" || { echo "::error::secret HETZNER_SSH_KEY is empty"; exit 1; }
           install -m 700 -d ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id && chmod 600 ~/.ssh/id
-          ssh -i ~/.ssh/id -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 "root@$HOST" 'bash -s' < "deploy/ops/$SCRIPT.sh"
+          if [ -n "$KNOWN_HOSTS" ]; then printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts; else cp deploy/ops/known_hosts ~/.ssh/known_hosts; fi
+          ssh -i ~/.ssh/id -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts -o ConnectTimeout=20 "root@$HOST" 'bash -s' < "deploy/ops/$SCRIPT.sh"

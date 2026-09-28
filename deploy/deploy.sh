@@ -20,4 +20,4 @@ npm run build
 echo "♻️  restart"
 systemctl restart alisio-ucetni
 sleep 3
-systemctl is-active --quiet alisio-ucetni && echo "✅ alisio-ucetni running" || (journalctl -u alisio-ucetni -n 50 --no-pager; exit 1)
+systemctl is-active --quiet alisio-ucetni && echo "✅ alisio-ucetni running" || (journalctl -u alisio-ucetni -n 50 --no-pager | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/<email>/g; s#//[^@ ]*@#//***@#g'; exit 1)
