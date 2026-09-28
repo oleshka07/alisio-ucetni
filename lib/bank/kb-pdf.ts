@@ -207,7 +207,8 @@ export function parseKbStatementItems(items: PdfItem[]): ParsedStatement {
     }
   }
 
-  const transactions: ParsedTransaction[] = entries.map((e, idx) => {
+  const seen = new Map<string, number>();
+  const transactions: ParsedTransaction[] = entries.map((e) => {
     const msgStart = e.desc.findIndex((d) => MSG_MARK.test(d));
     const head = msgStart >= 0 ? e.desc.slice(0, msgStart) : e.desc;
     const msgLines = msgStart >= 0 ? [MSG_MARK.exec(e.desc[msgStart])![2], ...e.desc.slice(msgStart + 1)].filter(Boolean) : [];
@@ -220,6 +221,15 @@ export function parseKbStatementItems(items: PdfItem[]): ParsedStatement {
     // Для SEPA/закордонних платежів KB пише ім'я контрагента в «Popis transakce»
     const counterpartyName = cpName || (counterpartyAccount ? popis || null : null);
 
+    const message = [popis, msgLines.join(" ")].filter(Boolean).join(" | ");
+    // ID має бути однаковим в усіх виписках, де є ця операція (щоденна й місячна перекриваються),
+    // тому без ідентифікатора KB беремо зміст операції, а не її порядковий номер у виписці.
+    // Однакові операції в межах виписки розрізняє лічильник: #1, #2 …
+    const key = ident || `${counterpartyAccount || ""}|${e.symbols.join("/")}|${message}`;
+    const base = `kb:${e.date}:${key}:${e.amount.toFixed(2)}`;
+    const n = seen.get(base) ?? 0;
+    seen.set(base, n + 1);
+
     return {
       date: e.date,
       amount: e.amount,
@@ -229,8 +239,8 @@ export function parseKbStatementItems(items: PdfItem[]): ParsedStatement {
       variableSymbol: e.symbols[0],
       constantSymbol: e.symbols[1],
       specificSymbol: e.symbols[2],
-      message: [popis, msgLines.join(" ")].filter(Boolean).join(" | "),
-      externalId: `kb:${e.date}:${ident || idx}:${e.amount.toFixed(2)}`,
+      message,
+      externalId: n ? `${base}#${n}` : base,
     };
   });
 

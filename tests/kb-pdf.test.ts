@@ -101,3 +101,19 @@ test("czAmount: české formáty částek", () => {
   assert.equal(czAmount("-33 517,00"), -33517);
   assert.equal(czAmount("1 025,26"), 1025.26);
 });
+
+test("KB PDF: ID bez identifikace nezávisí na pořadí ve výpisu (překrývající se výpisy)", () => {
+  // dvě stejné operace bez identifikace + jedna jiná; ve druhém výpisu je jiné pořadí
+  const fee = (y: number) => [at(48, y, "31.07.2026"), at(101, y, "POPLATEK"), ra(562, y, "-1,00")];
+  const other = (y: number) => [at(48, y, "30.07.2026"), at(101, y, "JINÝ POPLATEK"), ra(562, y, "-2,00")];
+  const build = (rows: PdfItem[][], closing: string) => [
+    ...header(),
+    at(48, 575, "POČÁTEČNÍ ZŮSTATEK"), ra(562, 575, "10,00"),
+    ...rows.flat(),
+    at(48, 300, "KONEČNÝ ZŮSTATEK"), ra(562, 300, closing),
+  ];
+  const a = parseKbStatementItems(build([other(515), fee(480), fee(445)], "6,00")).transactions.map((t) => t.externalId);
+  const b = parseKbStatementItems(build([fee(515), fee(480), other(445)], "6,00")).transactions.map((t) => t.externalId);
+  assert.equal(new Set(a).size, 3);
+  assert.deepEqual([...a].sort(), [...b].sort());
+});

@@ -46,5 +46,6 @@ jobs:
           host: ${{ secrets.HETZNER_HOST }}
           username: root
           key: ${{ secrets.HETZNER_SSH_KEY }}
+          fingerprint: SHA256:UW4YaYsJM/IMheNwmUP9Kc/0LydN0yV2mhRMbdcBajM # ED25519-ключ сервера, див. deploy/ops/known_hosts
           command_timeout: 15m
           script: cd /root/projects/alisio-ucetni && bash deploy/deploy.sh

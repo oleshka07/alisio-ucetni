@@ -2,6 +2,7 @@
 # Приймальна перевірка на сервері. Значень секретів не друкує — лише "є / порожньо".
 set -u
 cd /root/projects/alisio-ucetni
+mask() { sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/<email>/g; s#//[^@ ]*@#//***@#g'; }
 echo "== services"; for s in alisio-ucetni alisio-pms nginx postgresql; do printf '%-14s %s\n' "$s" "$(systemctl is-active $s)"; done
 echo "== commit"; git log --oneline -1
 echo "== https"; curl -s -o /dev/null -w "login %{http_code}, ssl_verify=%{ssl_verify_result}\n" https://ucetni.rozum.one/login
@@ -15,8 +16,8 @@ done
 grep -E '^APP_URL=' .env
 echo "== db"; sudo -u postgres psql -d alisio_ucetni -tAc 'select count(*) || '"' users'"' from "User"'
 echo "== cron"; crontab -l | grep -c alisio-ucetni
-echo "== sync (ручний прогін)"; bash deploy/cron.sh sync 2>&1 | tail -3; echo "sync exit ${PIPESTATUS[0]}"
+echo "== sync (ручний прогін)"; bash deploy/cron.sh sync 2>&1 | mask | tail -3; echo "sync exit ${PIPESTATUS[0]}"
 echo "== backup"; bash deploy/backup.sh 2>&1 | sed -E 's#//[^@ ]*@#//***@#g' | tail -3; ls -la /root/backups/alisio-ucetni 2>/dev/null | tail -3
 echo "== files dir"; ls -ld /var/lib/alisio-ucetni/files
-echo "== app log (20)"; journalctl -u alisio-ucetni -n 20 --no-pager -o cat
+echo "== app log (20)"; journalctl -u alisio-ucetni -n 20 --no-pager -o cat | mask
 echo "== disk"; df -h / | tail -1
