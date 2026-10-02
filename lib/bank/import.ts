@@ -11,6 +11,12 @@ export function dedupHash(bankAccountId: string, t: ParsedTransaction): string {
   return sha256Hex(key).slice(0, 40);
 }
 
+/** Рахунок, якому належить виписка, серед усіх активних — лише за номером/IBAN (без «запасного» вибору). */
+export async function findAccountForStatement(st: ParsedStatement): Promise<BankAccount | null> {
+  const all = await prisma.bankAccount.findMany({ where: { isActive: true }, orderBy: { createdAt: "asc" } });
+  return all.find((a) => (a.accountNumber || a.iban) && sameAccount(a, st)) ?? null;
+}
+
 export function sameAccount(acc: Pick<BankAccount, "accountNumber" | "iban">, st: ParsedStatement): boolean {
   const mine = [acc.accountNumber, acc.iban].map(normalizeAccount).filter(Boolean);
   const theirs = [st.accountNumber, st.iban].map(normalizeAccount).filter(Boolean);
@@ -38,12 +44,18 @@ export interface ImportResult {
 export async function importStatement(
   account: BankAccount,
   st: ParsedStatement,
-  meta: { source: "imap" | "fio" | "upload"; externalId: string; fileName?: string }
+  meta: { source: "imap" | "fio" | "upload"; externalId: string; fileName?: string; fileUrl?: string }
 ): Promise<ImportResult> {
   const existing = await prisma.bankStatement.findUnique({
     where: { bankAccountId_externalId: { bankAccountId: account.id, externalId: meta.externalId } },
   });
-  if (existing) return { statementId: existing.id, total: existing.txCount, imported: 0, skippedDuplicate: true };
+  if (existing) {
+    // виписку імпортували ще до того, як ми почали зберігати файли — доберемо файл
+    if (!existing.fileUrl && meta.fileUrl) {
+      await prisma.bankStatement.update({ where: { id: existing.id }, data: { fileUrl: meta.fileUrl, fileName: meta.fileName ?? existing.fileName } });
+    }
+    return { statementId: existing.id, total: existing.txCount, imported: 0, skippedDuplicate: true };
+  }
 
   // якщо в рахунку ще не заповнено номер/IBAN — беремо з виписки
   if (!account.accountNumber && !account.iban && (st.accountNumber || st.iban)) {
@@ -65,6 +77,7 @@ export async function importStatement(
       source: meta.source,
       externalId: meta.externalId,
       fileName: meta.fileName,
+      fileUrl: meta.fileUrl,
       periodFrom: st.periodFrom ? new Date(st.periodFrom) : null,
       periodTo: st.periodTo ? new Date(st.periodTo) : null,
       openingBalance: st.openingBalance,

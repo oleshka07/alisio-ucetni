@@ -29,7 +29,7 @@ export default async function PortalDashboard() {
       take: 5,
     }),
     prisma.document.findMany({
-      where: { clientId: session.clientId },
+      where: { clientId: session.clientId, archivedAt: null },
       orderBy: { createdAt: "desc" },
       take: 5,
     }),

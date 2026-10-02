@@ -12,7 +12,7 @@ export default async function PortalDocumentsPage() {
   if (!session || session.role !== "client" || !session.clientId) redirect("/login");
 
   const documents = await prisma.document.findMany({
-    where: { clientId: session.clientId },
+    where: { clientId: session.clientId, archivedAt: null },
     orderBy: { createdAt: "desc" },
   });
 

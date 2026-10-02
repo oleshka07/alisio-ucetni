@@ -1,27 +1,36 @@
 export const dynamic = "force-dynamic";
 
 import { Fragment } from "react";
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 import { findCandidates } from "@/lib/docs/match";
 import { fmtAmount, fmtDate } from "@/lib/format";
 import FileDrop from "@/components/finance/FileDrop";
 import ActionButton from "@/components/finance/ActionButton";
 import DocTypeSelect from "@/components/finance/DocTypeSelect";
-import { FileText, Link2, Mail, Send, Upload } from "lucide-react";
+import { Archive, ArchiveRestore, FileText, Link2, Mail, Send, Trash2, Upload } from "lucide-react";
 
 // причини збігу приходять українською (їх же показує Telegram-бот)
 const REASON_CS: Record<string, string> = { "сума": "částka", "сума ≈": "částka ≈", "назва": "název" };
 
 const SOURCE_ICON = { email: Mail, telegram: Send, web: Upload, accountant: Upload } as const;
 
-export default async function InboxPage() {
-  const docs = await prisma.document.findMany({
-    where: { links: { none: {} }, task: null },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-    include: { client: true },
-  });
-  const withCandidates = await Promise.all(docs.map(async (d) => ({ doc: d, candidates: await findCandidates(d, 3) })));
+export default async function InboxPage({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
+  const archive = (await searchParams).view === "archive";
+  const session = await getSession();
+  const isOwner = session?.role === "owner";
+  const [docs, archivedCount] = await Promise.all([
+    prisma.document.findMany({
+      where: archive ? { archivedAt: { not: null } } : { links: { none: {} }, task: null, archivedAt: null },
+      orderBy: archive ? { archivedAt: "desc" } : { createdAt: "desc" },
+      take: archive ? 200 : 50,
+      include: { client: true },
+    }),
+    prisma.document.count({ where: { archivedAt: { not: null } } }),
+  ]);
+  const withCandidates = await Promise.all(docs.map(async (d) => ({ doc: d, candidates: archive ? [] : await findCandidates(d, 3) })));
 
   return (
     <div className="space-y-6">
@@ -32,13 +41,30 @@ export default async function InboxPage() {
         </p>
       </div>
 
-      <FileDrop url="/api/documents/intake" compact label="Nahrát doklady (PDF, foto)" />
+      {!archive && <FileDrop url="/api/documents/intake" compact label="Nahrát doklady (PDF, foto)" />}
+
+      <div className="flex gap-1 border-b border-border">
+        {[
+          { href: "/inbox", label: "K přiřazení", active: !archive },
+          { href: "/inbox?view=archive", label: `Archiv (${archivedCount})`, active: archive },
+        ].map((t) => (
+          <Link
+            key={t.href}
+            href={t.href}
+            className={cn("px-3 py-2 text-sm border-b-2 -mb-px", t.active ? "border-primary text-primary font-medium" : "border-transparent text-muted-foreground hover:text-foreground")}
+          >
+            {t.label}
+          </Link>
+        ))}
+      </div>
 
       {withCandidates.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center text-sm text-muted-foreground">Vše je přiřazeno 🎉</div>
+        <div className="bg-card border border-border rounded-xl p-12 text-center text-sm text-muted-foreground">
+          {archive ? "Archiv je prázdný" : "Vše je přiřazeno 🎉"}
+        </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-x-auto">
-          <table className="w-full min-w-[900px] table-fixed text-sm">
+          <table className="w-full min-w-[960px] table-fixed text-sm">
             <colgroup>
               <col />
               <col className="w-40" />
@@ -46,6 +72,7 @@ export default async function InboxPage() {
               <col className="w-28" />
               <col className="w-28" />
               <col className="w-32" />
+              <col className={archive ? "w-36" : "w-14"} />
             </colgroup>
             <thead className="bg-muted/40 text-xs text-muted-foreground">
               <tr>
@@ -55,6 +82,7 @@ export default async function InboxPage() {
                 <th className="text-left font-medium px-4 py-2">Datum</th>
                 <th className="text-left font-medium px-4 py-2">VS</th>
                 <th className="text-right font-medium px-4 py-2">Částka</th>
+                <th className="px-2 py-2"><span className="sr-only">Akce</span></th>
               </tr>
             </thead>
             <tbody>
@@ -71,9 +99,15 @@ export default async function InboxPage() {
                               {doc.originalName}
                             </a>
                             <p className="text-xs text-muted-foreground truncate">
-                              {[doc.extractedNumber && `č. ${doc.extractedNumber}`, doc.client?.name, `nahráno ${fmtDate(doc.createdAt)}`].filter(Boolean).join(" · ")}
+                              {[
+                                doc.extractedNumber && `č. ${doc.extractedNumber}`,
+                                doc.client?.name,
+                                doc.archivedAt ? `archivováno ${fmtDate(doc.archivedAt)}` : `nahráno ${fmtDate(doc.createdAt)}`,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
                             </p>
-                            {doc.aiStatus === "failed" && <p className="text-xs text-amber-600 mt-0.5">Nerozpoznáno — přiřaďte ručně z detailu platby.</p>}
+                            {!archive && doc.aiStatus === "failed" && <p className="text-xs text-amber-600 mt-0.5">Nerozpoznáno — přiřaďte ručně z detailu platby.</p>}
                           </div>
                         </div>
                       </td>
@@ -88,10 +122,28 @@ export default async function InboxPage() {
                       <td className="px-4 py-2.5 text-right whitespace-nowrap font-medium tabular-nums">
                         {doc.extractedAmount != null ? fmtAmount(Number(doc.extractedAmount), doc.extractedCurrency || "CZK", false) : "—"}
                       </td>
+                      <td className="px-2 py-2 text-right whitespace-nowrap">
+                        {archive ? (
+                          <div className="inline-flex gap-1">
+                            <ActionButton url={`/api/documents/${doc.id}`} method="PATCH" body={{ archived: false }} variant="ghost" className="px-2 text-xs" success="Obnoveno">
+                              <ArchiveRestore className="w-3.5 h-3.5" /> Obnovit
+                            </ActionButton>
+                            {isOwner && (
+                              <ActionButton url={`/api/documents/${doc.id}`} method="DELETE" variant="danger" className="px-2 text-xs" confirm={`Smazat „${doc.originalName}“ natrvalo? Soubor nepůjde obnovit.`} success="Smazáno">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </ActionButton>
+                            )}
+                          </div>
+                        ) : (
+                          <ActionButton url={`/api/documents/${doc.id}`} method="PATCH" body={{ archived: true }} variant="ghost" className="px-2" success="Přesunuto do archivu" title="Archivovat — zbytečný nebo omylem nahraný doklad">
+                            <Archive className="w-4 h-4" />
+                          </ActionButton>
+                        )}
+                      </td>
                     </tr>
                     {candidates.length > 0 && (
                       <tr className="bg-muted/20">
-                        <td colSpan={6} className="px-4 pb-2.5 pt-1">
+                        <td colSpan={7} className="px-4 pb-2.5 pt-1">
                           <div className="pl-5 space-y-1">
                             <p className="text-xs font-medium text-muted-foreground">Možné platby:</p>
                             {candidates.map((c) => (

@@ -13,7 +13,7 @@ function csvCell(v: unknown): string {
   return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-/** ZIP за місяць для бухгалтера: platby.csv + усі документи, розкладені по платежах. */
+/** ZIP за місяць для бухгалтера: platby.csv + усі документи, розкладені по платежах + оригінали виписок. */
 export const GET = handle(async (req: NextRequest) => {
   await requireStaff();
   const url = new URL(req.url);
@@ -66,6 +66,28 @@ export const GET = handle(async (req: NextRequest) => {
     );
   }
   zip.file("platby.csv", "﻿" + rows.join("\r\n"));
+
+  // originály výpisů, jejichž období zasahuje do měsíce
+  const statements = await prisma.bankStatement.findMany({
+    where: {
+      bankAccount: { clientId },
+      fileUrl: { not: null },
+      OR: [{ periodFrom: { lt: to }, periodTo: { gte: from } }, { periodFrom: null, createdAt: { gte: from, lt: to } }],
+    },
+    include: { bankAccount: { select: { name: true } } },
+    orderBy: { periodFrom: "asc" },
+  });
+  const seenFiles = new Set<string>();
+  for (const st of statements) {
+    if (!st.fileUrl || seenFiles.has(st.fileUrl)) continue;
+    seenFiles.add(st.fileUrl);
+    const safe = `${st.bankAccount.name}_${st.fileName || st.id}`.replace(/[^\w.\-]+/g, "_").slice(-100);
+    try {
+      zip.file(`vypisy/${safe}`, await readFile(st.fileUrl));
+    } catch {
+      // soubor nedostupný — CSV i doklady i tak stačí
+    }
+  }
   const buf = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
   const fname = `${client.name.replace(/[^\w\-]+/g, "_")}_${month}.zip`;
   return new NextResponse(buf as unknown as BodyInit, {

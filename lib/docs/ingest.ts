@@ -132,6 +132,11 @@ export async function ingestDocument(input: IngestInput): Promise<IngestOutcome>
     include: { links: { include: { transaction: true } } },
   });
   if (existing) {
+    // Архівований файл свідомо надіслали знову (веб, Telegram) — повертаємо з архіву.
+    // З пошти — ні: той самий спам/дубль прийде ще раз і має лишитися в архіві.
+    if (existing.archivedAt && input.source !== "email") {
+      await prisma.document.update({ where: { id: existing.id }, data: { archivedAt: null } });
+    }
     if (input.transactionId && !existing.links.some((l) => l.transactionId === input.transactionId)) {
       await linkDocument(input.transactionId, existing.id, linkedBy);
     }
@@ -236,6 +241,7 @@ export async function matchUnassignedDocuments(clientId?: string): Promise<Array
   const docs = await prisma.document.findMany({
     where: {
       links: { none: {} },
+      archivedAt: null,
       aiStatus: "done",
       extractedAmount: { not: null },
       createdAt: { gt: new Date(Date.now() - 180 * 86400_000) },

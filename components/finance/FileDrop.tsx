@@ -41,8 +41,10 @@ export default function FileDrop({ url, label = "Přetáhněte soubory sem nebo 
       const results: Result[] = data.results || [];
       const dup = results.filter((r) => r.duplicate).length;
       const auto = results.filter((r) => r.autoLinked).length;
-      if (data.imported !== undefined) toast.success(`Importováno ${data.imported} z ${data.total} plateb`);
-      else toast.success(`Nahráno ${results.length}${auto ? ` · automaticky přiřazeno ${auto}` : ""}${dup ? ` · ${dup} už v systému byl(o)` : ""}`);
+      if (data.imported !== undefined) {
+        toast.success(`Importováno ${data.imported} z ${data.total} plateb`);
+        for (const err of (data.errors as string[] | undefined) || []) toast.error(err, { duration: 10000 });
+      } else toast.success(`Nahráno ${results.length}${auto ? ` · automaticky přiřazeno ${auto}` : ""}${dup ? ` · ${dup} už v systému byl(o)` : ""}`);
       router.refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Nahrání selhalo");

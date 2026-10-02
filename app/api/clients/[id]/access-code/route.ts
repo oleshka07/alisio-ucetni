@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { generateAccessCode } from "@/lib/auth";
+import { generateAccessCode, getSession } from "@/lib/auth";
+
+/** Коди доступу до порталу видає/відкликає лише співробітник — не клієнт порталу. */
+async function staffOnly() {
+  const s = await getSession();
+  return !s || s.role === "client" ? NextResponse.json({ error: "Forbidden" }, { status: 403 }) : null;
+}
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await staffOnly();
+  if (denied) return denied;
   try {
     const { id } = await params;
 
@@ -37,6 +45,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
 // DELETE — remove access code (revoke client access)
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await staffOnly();
+  if (denied) return denied;
   try {
     const { id } = await params;
 

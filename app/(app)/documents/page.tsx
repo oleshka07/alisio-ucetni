@@ -15,7 +15,7 @@ export default async function DocumentsPage({
 
   const [documents, clients] = await Promise.all([
     prisma.document.findMany({
-      where: clientId ? { clientId } : undefined,
+      where: { archivedAt: null, ...(clientId ? { clientId } : {}) },
       include: { client: true, task: true },
       orderBy: { createdAt: "desc" },
     }),

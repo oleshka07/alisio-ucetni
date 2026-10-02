@@ -16,6 +16,7 @@ type Props = {
   confirm?: string;
   success?: string;
   onDone?: (data: unknown) => void;
+  title?: string;
 };
 
 export const btn = {
@@ -25,7 +26,7 @@ export const btn = {
   danger: "bg-card border border-red-200 text-red-600 hover:bg-red-50",
 };
 
-export default function ActionButton({ url, method = "POST", body, children, className, variant = "secondary", confirm, success, onDone }: Props) {
+export default function ActionButton({ url, method = "POST", body, children, className, variant = "secondary", confirm, success, onDone, title }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
@@ -53,6 +54,8 @@ export default function ActionButton({ url, method = "POST", body, children, cla
   return (
     <button
       type="button"
+      title={title}
+      aria-label={title}
       onClick={run}
       disabled={busy}
       className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors disabled:opacity-50", btn[variant], className)}
