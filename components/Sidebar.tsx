@@ -13,7 +13,6 @@ import {
   ChevronRight,
   Building2,
   User,
-  Plug,
   LogOut,
   Loader2,
   Landmark,
@@ -35,9 +34,8 @@ const navItems = [
   { href: "/inbox", label: "Nepřiřazené doklady", icon: Inbox },
   { href: "/statements", label: "Výpisy", icon: ScrollText },
   { href: "/tasks", label: "Úkoly", icon: CheckSquare },
-  { href: "/documents", label: "Dokumenty", icon: FileText },
+  { href: "/documents", label: "Dokumenty firmy", icon: FileText },
   { href: "/calendar", label: "Kalendář daní", icon: Calendar },
-  { href: "/integrations", label: "Integrace", icon: Plug },
   { href: "/settings", label: "Nastavení", icon: Settings },
 ];
 

@@ -35,7 +35,7 @@ export default async function TransactionPage({ params }: { params: Promise<{ id
   const coverage = requirementCoverage(tx.requiredDocs, linkedTypes);
   const companies = await prisma.client.findMany({ where: { isActive: true, type: "company" }, select: { id: true, name: true }, orderBy: { createdAt: "asc" } });
   const unassigned = await prisma.document.findMany({
-    where: { links: { none: {} }, archivedAt: null, OR: [{ clientId: tx.clientId }, { clientId: null }] },
+    where: { links: { none: {} }, archivedAt: null, companyDoc: false, OR: [{ clientId: tx.clientId }, { clientId: null }] },
     orderBy: { createdAt: "desc" },
     take: 20,
   });

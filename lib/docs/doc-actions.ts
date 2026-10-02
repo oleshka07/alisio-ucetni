@@ -40,6 +40,14 @@ export async function updateDocument(id: string, body: Record<string, any>): Pro
     if (d && !/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new HttpError(400, "Neplatné datum");
     data.extractedDate = d ? new Date(d) : null;
   }
+  // firemní dokumenty: kategorie, platnost, popis
+  if (body.docCategory !== undefined) data.docCategory = body.docCategory ? String(body.docCategory).slice(0, 30) : null;
+  if (body.validUntil !== undefined) {
+    const d = String(body.validUntil || "");
+    if (d && !/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new HttpError(400, "Neplatné datum");
+    data.validUntil = d ? new Date(d) : null;
+  }
+  text("description", 500);
   const edited = Object.keys(data).some((k) => k.startsWith("extracted"));
   if (edited) data.aiStatus = "done";
 
@@ -53,7 +61,7 @@ export async function updateDocument(id: string, body: Record<string, any>): Pro
   for (const t of txIds) await recomputeTransaction(t);
   // після виправлення даних неприв'язаний документ пробуємо знову зіставити з платежем
   let autoLinked: string | null = null;
-  if ((edited || data.docType !== undefined || data.clientId !== undefined) && !doc.links.length && !doc.archivedAt) {
+  if ((edited || data.docType !== undefined || data.clientId !== undefined) && !doc.links.length && !doc.archivedAt && !doc.companyDoc) {
     const auto = pickAutoMatch(await findCandidates(doc));
     if (auto) {
       await linkDocument(auto.tx.id, doc.id, "auto");

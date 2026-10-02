@@ -242,6 +242,7 @@ export async function matchUnassignedDocuments(clientId?: string): Promise<Array
     where: {
       links: { none: {} },
       archivedAt: null,
+      companyDoc: false,
       aiStatus: "done",
       extractedAmount: { not: null },
       createdAt: { gt: new Date(Date.now() - 180 * 86400_000) },
