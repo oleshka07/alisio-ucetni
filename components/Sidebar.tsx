@@ -18,6 +18,7 @@ import {
   Loader2,
   Landmark,
   Inbox,
+  ScrollText,
 } from "lucide-react";
 
 type Client = {
@@ -32,6 +33,7 @@ const navItems = [
   { href: "/dashboard", label: "Přehled", icon: LayoutDashboard },
   { href: "/transactions", label: "Platby a doklady", icon: Landmark },
   { href: "/inbox", label: "Nepřiřazené doklady", icon: Inbox },
+  { href: "/statements", label: "Výpisy", icon: ScrollText },
   { href: "/tasks", label: "Úkoly", icon: CheckSquare },
   { href: "/documents", label: "Dokumenty", icon: FileText },
   { href: "/calendar", label: "Kalendář daní", icon: Calendar },

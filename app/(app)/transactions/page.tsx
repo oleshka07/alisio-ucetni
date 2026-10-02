@@ -10,7 +10,7 @@ import StatusBadge from "@/components/finance/StatusBadge";
 import FileDrop from "@/components/finance/FileDrop";
 import ActionButton from "@/components/finance/ActionButton";
 import ExportForm from "@/components/finance/ExportForm";
-import { Paperclip, RefreshCw, CheckCircle2, MessageSquareWarning } from "lucide-react";
+import { Paperclip, RefreshCw, CheckCircle2, MessageSquareWarning, Upload } from "lucide-react";
 
 type SP = Promise<{ clientId?: string; month?: string; status?: string; q?: string }>;
 
@@ -83,6 +83,9 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Link href="/statements" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium bg-card border border-border hover:bg-accent">
+            <Upload className="w-3.5 h-3.5" /> Nahrát výpis
+          </Link>
           <ActionButton url="/api/cron/sync" success="Synchronizace hotová">
             <RefreshCw className="w-3.5 h-3.5" /> Načíst výpisy a e-maily
           </ActionButton>

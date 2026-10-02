@@ -33,6 +33,7 @@ export default async function DashboardPage() {
       take: 6,
     }),
     prisma.document.findMany({
+      where: { archivedAt: null },
       orderBy: { createdAt: "desc" },
       take: 3,
       include: { client: true },

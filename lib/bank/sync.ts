@@ -6,7 +6,8 @@ import { parseCamt053, looksLikeCamt } from "./camt";
 import { pdfItems, looksLikeKbPdf, parseKbStatementItems } from "./kb-pdf";
 import type { ParsedStatement } from "./types";
 import { fetchFioPeriod } from "./fio";
-import { importStatement, resolveAccountForStatement, sameAccount } from "./import";
+import { importStatement, resolveAccountForStatement, sameAccount, findAccountForStatement } from "./import";
+import { putFile, extFromName } from "@/lib/storage";
 import { matchUnassignedDocuments } from "@/lib/docs/ingest";
 import { notifyOwners, txLine } from "@/lib/telegram/notify";
 import { esc } from "@/lib/telegram/api";
@@ -48,16 +49,19 @@ async function syncImap(account: BankAccount, report: SyncReport) {
         report.notes.push(`Výpis ${name}: ${e instanceof Error ? e.message : String(e)}`);
         continue;
       }
+      let fileUrl: string | undefined;
       for (const [i, st] of statements.entries()) {
         const target = await resolveAccountForStatement(account, st);
         if (!target) {
           report.notes.push(`Výpis ${name}: účet ${st.iban || st.accountNumber} nepatří žádnému nastavenému účtu`);
           continue;
         }
+        fileUrl ??= await storeStatementFile(name, att.content);
         const r = await importStatement(target, st, {
           source: "imap",
           externalId: `imap:${account.id}:${mail.uid}:${name}:${i}`,
           fileName: name,
+          fileUrl,
         });
         if (!r.skippedDuplicate) {
           report.statements++;
@@ -109,6 +113,13 @@ export async function syncAllBankAccounts(): Promise<SyncReport[]> {
   return out;
 }
 
+/** Оригінал виписки в сховище; ключ за хешем — той самий файл зберігається один раз. */
+export async function storeStatementFile(name: string, content: Buffer): Promise<string> {
+  const ext = extFromName(name) || (content.subarray(0, 5).toString("latin1") === "%PDF-" ? ".pdf" : ".xml");
+  const type = ext === ".pdf" ? "application/pdf" : "application/xml";
+  return putFile(`statements/${sha256Hex(content).slice(0, 40)}${ext}`, content, type);
+}
+
 /**
  * Розпізнає файл виписки: CAMT.053 XML або PDF-виписка KB.
  * null — файл не схожий на виписку (звичайне вкладення); помилка — схожий, але не розібрався.
@@ -134,6 +145,7 @@ export async function importUploadedStatement(account: BankAccount, fileName: st
       throw new Error(`Výpis patří k účtu ${st.accountNumber || st.iban} (${st.currency}), ne k účtu „${account.name}“`);
     }
   }
+  const fileUrl = await storeStatementFile(fileName, content);
   let imported = 0;
   let total = 0;
   for (const [i, st] of statements.entries()) {
@@ -141,12 +153,66 @@ export async function importUploadedStatement(account: BankAccount, fileName: st
       source: "upload",
       externalId: `upload:${sha256Hex(content).slice(0, 24)}:${i}`,
       fileName,
+      fileUrl,
     });
     imported += r.imported;
     total += r.total;
   }
   const matchedDocuments = imported > 0 ? await afterImport(account.clientId) : 0;
   return { imported, total, matchedDocuments };
+}
+
+export interface FileImportResult {
+  fileName: string;
+  ok: boolean;
+  account?: string;
+  imported: number;
+  total: number;
+  duplicate?: boolean;
+  error?: string;
+}
+
+/**
+ * Ручне завантаження без вибору рахунку: рахунок визначаємо за номером/IBAN у самій виписці.
+ * Кожен файл обробляється окремо — помилка одного не зупиняє інші.
+ */
+export async function importStatementFiles(files: Array<{ name: string; content: Buffer }>): Promise<FileImportResult[]> {
+  const out: FileImportResult[] = [];
+  const touchedClients = new Set<string>();
+  for (const f of files) {
+    const res: FileImportResult = { fileName: f.name, ok: false, imported: 0, total: 0 };
+    try {
+      const statements = await parseStatementFile(f.name, "", f.content);
+      if (!statements) throw new Error("Není to výpis CAMT.053 (XML) ani PDF výpis Komerční banky");
+      let fileUrl: string | undefined;
+      let dup = true;
+      for (const [i, st] of statements.entries()) {
+        const account = await findAccountForStatement(st);
+        if (!account) {
+          throw new Error(`Účet ${st.accountNumber || st.iban} (${st.currency}) není v Nastavení → Bankovní účty`);
+        }
+        fileUrl ??= await storeStatementFile(f.name, f.content);
+        const r = await importStatement(account, st, {
+          source: "upload",
+          externalId: `upload:${sha256Hex(f.content).slice(0, 24)}:${i}`,
+          fileName: f.name,
+          fileUrl,
+        });
+        res.account = account.name;
+        res.imported += r.imported;
+        res.total += r.total;
+        dup &&= r.skippedDuplicate;
+        touchedClients.add(account.clientId);
+      }
+      res.duplicate = dup;
+      res.ok = true;
+    } catch (e) {
+      res.error = e instanceof Error ? e.message : String(e);
+    }
+    out.push(res);
+  }
+  for (const c of touchedClients) await afterImport(c);
+  return out;
 }
 
 /** Після нових платежів — дочепити документи, що чекали, і сповістити. */

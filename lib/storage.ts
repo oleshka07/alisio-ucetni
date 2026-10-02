@@ -1,4 +1,4 @@
-import { put, get } from "@vercel/blob";
+import { put, get, del } from "@vercel/blob";
 import { promises as fs } from "fs";
 import path from "path";
 
@@ -40,6 +40,15 @@ export async function readFile(url: string): Promise<Buffer> {
   const res = await get(url, { access: "private" });
   if (!res) throw new Error("File not found in blob storage");
   return Buffer.from(await new Response(res.stream).arrayBuffer());
+}
+
+/** Видалити файл зі сховища. Відсутній файл — не помилка. */
+export async function deleteFile(url: string): Promise<void> {
+  if (url.startsWith(LOCAL_PREFIX)) {
+    await fs.rm(path.join(localRoot(), safeKey(url.slice(LOCAL_PREFIX.length))), { force: true });
+    return;
+  }
+  await del(url);
 }
 
 export function extFromName(name: string): string {

@@ -32,7 +32,7 @@ export default async function TransactionPage({ params }: { params: Promise<{ id
   const linkedTypes = tx.links.map((l) => l.document.docType);
   const coverage = requirementCoverage(tx.requiredDocs, linkedTypes);
   const unassigned = await prisma.document.findMany({
-    where: { links: { none: {} }, OR: [{ clientId: tx.clientId }, { clientId: null }] },
+    where: { links: { none: {} }, archivedAt: null, OR: [{ clientId: tx.clientId }, { clientId: null }] },
     orderBy: { createdAt: "desc" },
     take: 20,
   });

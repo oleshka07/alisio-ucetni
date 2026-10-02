@@ -303,7 +303,7 @@ async function listDocuments(args: Record<string, unknown>): Promise<string> {
   }
 
   const docs = await prisma.document.findMany({
-    where: clientId ? { clientId } : {},
+    where: { archivedAt: null, ...(clientId ? { clientId } : {}) },
     include: { client: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
     take: 20,

@@ -139,6 +139,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  // видалення фірми каскадом зносить платежі й документи — лише власник
+  const session = await getSession();
+  if (session?.role !== "owner") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   try {
     const { id } = await params;
     await prisma.client.delete({ where: { id } });

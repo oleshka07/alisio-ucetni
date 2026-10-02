@@ -207,6 +207,7 @@ model Document {
   extractedIco          String?
   extractedNumber       String?
   extractedCounterparty String?
+  archivedAt            DateTime? // зайвий / помилково доданий: прихований зі списків і пошуку платежів
 
   task     Task?
   links    TransactionDocument[]
@@ -343,6 +344,7 @@ model BankStatement {
   source         String // imap | fio | upload
   externalId     String // imap:<uid>:<file> | fio:<datum> | upload:<sha>
   fileName       String?
+  fileUrl        String? // оригінал виписки (PDF / XML) — для бухгалтера
   periodFrom     DateTime?
   periodTo       DateTime?
   openingBalance Decimal?    @db.Decimal(14, 2)
