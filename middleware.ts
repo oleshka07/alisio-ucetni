@@ -7,7 +7,7 @@ const PUBLIC_PREFIXES = ["/login", "/api/auth", "/api/cron", "/api/telegram/webh
 const STATIC_PREFIXES = ["/_next", "/favicon.ico", "/icons", "/images"];
 
 // API, доступні клієнтському порталу (6-значний код)
-const CLIENT_ALLOWED_API = ["/api/documents/upload", "/api/tasks/", "/api/clients/"];
+const CLIENT_ALLOWED_API = ["/api/documents/upload", "/api/company-docs", "/api/tasks/", "/api/clients/"];
 
 // За nginx request.url містить внутрішню адресу (localhost:3012). Публічну адресу беремо з APP_URL,
 // а не із заголовків запиту: X-Forwarded-Host може підставити будь-хто, і редірект повів би на чужий домен.

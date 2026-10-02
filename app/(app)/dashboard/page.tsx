@@ -11,46 +11,43 @@ import {
   CheckSquare,
   FileText,
   AlertTriangle,
-  TrendingUp,
   Calendar,
   ArrowRight,
   Clock,
 } from "lucide-react";
 
 export default async function DashboardPage() {
-  const [clients, tasks, taxEvents, documents] = await Promise.all([
-    prisma.client.findMany({ where: { isActive: true }, include: { companyProfile: true } }),
+  const now = new Date();
+  const in45 = new Date(now.getTime() + 45 * 86400_000);
+  const in30 = new Date(now.getTime() + 30 * 86400_000);
+  const activeTask = { status: { in: ["pending", "in_progress"] } };
+  const [clients, tasks, taxEvents, activeTasks, overdueTasks, overdueTax, upcomingTax, missingByClient, expiringDocs] = await Promise.all([
+    prisma.client.findMany({ where: { isActive: true }, include: { companyProfile: true }, orderBy: { createdAt: "asc" } }),
     prisma.task.findMany({
-      where: { status: { in: ["pending", "in_progress"] } },
+      where: activeTask,
       include: { client: true },
-      orderBy: [{ priority: "desc" }, { dueDate: "asc" }],
-      take: 5,
-    }),
-    prisma.taxEvent.findMany({
-      where: { status: { in: ["upcoming", "overdue"] } },
-      include: { client: true },
-      orderBy: { dueDate: "asc" },
+      orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { priority: "desc" }],
       take: 6,
     }),
-    prisma.document.findMany({
-      where: { archivedAt: null },
-      orderBy: { createdAt: "desc" },
-      take: 3,
+    prisma.taxEvent.findMany({
+      where: { status: { in: ["upcoming", "overdue"] }, dueDate: { lte: in45 } },
       include: { client: true },
+      orderBy: { dueDate: "asc" },
+      take: 8,
+    }),
+    prisma.task.count({ where: activeTask }),
+    prisma.task.count({ where: { ...activeTask, dueDate: { lt: now } } }),
+    prisma.taxEvent.count({ where: { status: { in: ["upcoming", "overdue"] }, dueDate: { lt: now } } }),
+    prisma.taxEvent.count({ where: { status: "upcoming", dueDate: { gte: now, lte: in30 } } }),
+    prisma.transaction.groupBy({ by: ["clientId"], where: { docStatus: { in: ["missing", "partial"] } }, _count: true }),
+    prisma.document.findMany({
+      where: { companyDoc: true, archivedAt: null, validUntil: { lte: in30 } },
+      include: { client: { select: { name: true } } },
+      orderBy: { validUntil: "asc" },
+      take: 5,
     }),
   ]);
-
-  const totalTaxThisYear = await prisma.taxEvent.aggregate({
-    where: { period: { contains: "2025" }, status: { not: "cancelled" } },
-    _sum: { amount: true },
-  });
-
-  const overdueTasks = await prisma.task.count({
-    where: {
-      status: { in: ["pending", "in_progress"] },
-      dueDate: { lt: new Date() },
-    },
-  });
+  const missingOf = new Map(missingByClient.map((m) => [m.clientId, m._count]));
 
   return (
     <div className="space-y-6">
@@ -58,7 +55,7 @@ export default async function DashboardPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Přehled</h1>
         <p className="text-muted-foreground text-sm mt-0.5">
-          {new Intl.DateTimeFormat("cs-CZ", { dateStyle: "full" }).format(new Date())}
+          {new Intl.DateTimeFormat("cs-CZ", { dateStyle: "full" }).format(now)}
         </p>
       </div>
 
@@ -66,29 +63,26 @@ export default async function DashboardPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          label="Klienti / entity"
-          value={clients.length}
-          icon={<Building2 className="w-5 h-5" />}
-          color="indigo"
-        />
+        <StatCard label="Firmy" value={clients.length} icon={<Building2 className="w-5 h-5" />} color="indigo" />
         <StatCard
           label="Aktivní úkoly"
-          value={tasks.length}
+          value={activeTasks}
           icon={<CheckSquare className="w-5 h-5" />}
           color="amber"
-          badge={overdueTasks > 0 ? `${overdueTasks} po splatnosti` : undefined}
+          badge={overdueTasks > 0 ? `${overdueTasks} po termínu` : undefined}
           badgeColor="red"
         />
         <StatCard
-          label="Daně 2025 (odhad)"
-          value={formatCurrency(totalTaxThisYear._sum.amount ?? 0)}
-          icon={<TrendingUp className="w-5 h-5" />}
+          label="Daňové termíny do 30 dnů"
+          value={upcomingTax}
+          icon={<Calendar className="w-5 h-5" />}
           color="emerald"
+          badge={overdueTax > 0 ? `${overdueTax} po termínu` : undefined}
+          badgeColor="red"
         />
         <StatCard
-          label="Dokumenty"
-          value={documents.length}
+          label="Dokumenty firmy: končí platnost"
+          value={expiringDocs.length}
           icon={<FileText className="w-5 h-5" />}
           color="sky"
         />
@@ -98,7 +92,7 @@ export default async function DashboardPage() {
         {/* Clients */}
         <section className="bg-card border border-border rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-foreground">Moji klienti</h2>
+            <h2 className="font-semibold text-foreground">Firmy</h2>
             <Link href="/clients/new" className="text-xs text-primary hover:underline">
               + Přidat
             </Link>
@@ -123,9 +117,14 @@ export default async function DashboardPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{client.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {client.companyProfile?.ico ? `IČO: ${client.companyProfile.ico}` : client.role}
+                    {client.companyProfile?.ico ? `IČO: ${client.companyProfile.ico}` : client.type === "company" ? "Firma" : "Osoba"}
                   </p>
                 </div>
+                {(missingOf.get(client.id) ?? 0) > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 whitespace-nowrap" title="Platby bez dokladů">
+                    {missingOf.get(client.id)} bez dokladů
+                  </span>
+                )}
                 <ArrowRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
               </Link>
             ))}
@@ -141,8 +140,11 @@ export default async function DashboardPage() {
             </Link>
           </div>
           <div className="space-y-2">
+            {taxEvents.length === 0 && (
+              <p className="text-sm text-muted-foreground py-6 text-center">Žádné termíny v příštích 45 dnech</p>
+            )}
             {taxEvents.map((ev) => {
-              const isOverdue = ev.dueDate < new Date() && ev.status === "upcoming";
+              const isOverdue = ev.dueDate < now && ev.status !== "paid";
               return (
                 <div
                   key={ev.id}
@@ -166,7 +168,7 @@ export default async function DashboardPage() {
                     <p className="text-xs text-muted-foreground truncate">{ev.client.name}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    {ev.amount && (
+                    {ev.amount != null && ev.amount > 0 && (
                       <p className="text-sm font-semibold text-foreground">
                         {formatCurrency(ev.amount)}
                       </p>
@@ -182,6 +184,25 @@ export default async function DashboardPage() {
         </section>
       </div>
 
+      {expiringDocs.length > 0 && (
+        <section className="bg-card border border-amber-200 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-foreground">Končí platnost dokumentů</h2>
+            <Link href="/documents" className="text-xs text-primary hover:underline">Dokumenty firmy</Link>
+          </div>
+          <ul className="space-y-1.5 text-sm">
+            {expiringDocs.map((d) => (
+              <li key={d.id} className="flex items-center justify-between gap-3">
+                <a href={`/api/documents/${d.id}/file`} target="_blank" className="truncate hover:text-primary">{d.originalName}</a>
+                <span className={cn("text-xs whitespace-nowrap", d.validUntil! < now ? "text-red-600" : "text-amber-600")}>
+                  {d.client?.name} · {formatDate(d.validUntil)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* Tasks */}
       <section className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
@@ -195,7 +216,7 @@ export default async function DashboardPage() {
         ) : (
           <div className="space-y-2">
             {tasks.map((task) => {
-              const isOverdue = task.dueDate && task.dueDate < new Date();
+              const isOverdue = task.dueDate && task.dueDate < now;
               return (
                 <Link
                   key={task.id}

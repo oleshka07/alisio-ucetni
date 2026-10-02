@@ -209,6 +209,11 @@ model Document {
   extractedCounterparty String?
   archivedAt            DateTime? // зайвий / помилково доданий: прихований зі списків і пошуку платежів
 
+  // ── Документи фірми (не до платежів): виписка з OR, статут, ліцензії, договори ──
+  companyDoc  Boolean   @default(false)
+  docCategory String? // registry | articles | license | certificate | contract | tax | other
+  validUntil  DateTime? // для нагадувань про закінчення строку
+
   task     Task?
   links    TransactionDocument[]
   requests DocumentRequest[]     @relation("RequestFulfilledBy")
@@ -260,16 +265,7 @@ model TaxEvent {
 
 // ─── API інтеграції (для майбутнього) ─────────────────────────────────────────
 
-model ApiIntegration {
-  id          String    @id @default(cuid())
-  name        String // "fakturoid" | "pohoda" | "money_s3" | "moje_id" etc.
-  displayName String
-  isActive    Boolean   @default(false)
-  config      String? // JSON string with integration config
-  lastSync    DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-}
+
 
 // ─── Аудит лог змін профілю ───────────────────────────────────────────────────
 

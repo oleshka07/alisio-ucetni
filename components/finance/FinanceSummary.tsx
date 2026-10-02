@@ -8,7 +8,7 @@ export default async function FinanceSummary() {
   const now = new Date();
   const [missing, unassigned, openReq, urgent] = await Promise.all([
     prisma.transaction.count({ where: { docStatus: { in: ["missing", "partial"] } } }),
-    prisma.document.count({ where: { links: { none: {} }, task: null } }),
+    prisma.document.count({ where: { links: { none: {} }, task: null, archivedAt: null, companyDoc: false } }),
     prisma.documentRequest.count({ where: { status: "open" } }),
     prisma.task.findMany({
       where: { status: { in: ["pending", "in_progress"] }, OR: [{ source: "databox" }, { dueDate: { lte: new Date(now.getTime() + 14 * 86400_000) } }] },

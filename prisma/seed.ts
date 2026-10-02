@@ -19,7 +19,6 @@ async function main() {
   await prisma.employeeProfile.deleteMany();
   await prisma.companyProfile.deleteMany();
   await prisma.client.deleteMany();
-  await prisma.apiIntegration.deleteMany();
 
   // ─── Клієнт 1: Головна компанія (власник) ──────────────────────────────────
   const company1 = await prisma.client.create({
@@ -300,18 +299,6 @@ async function main() {
       priority: "normal",
       createdBy: "accountant",
     },
-  });
-
-  // ─── API integrace ─────────────────────────────────────────────────────────
-  await prisma.apiIntegration.createMany({
-    data: [
-      { name: "fakturoid", displayName: "Fakturoid", isActive: false },
-      { name: "pohoda", displayName: "POHODA", isActive: false },
-      { name: "ares", displayName: "ARES (OR)", isActive: false },
-      { name: "moje_id", displayName: "mojeID / ePortál", isActive: false },
-      { name: "csob", displayName: "ČSOB Banking API", isActive: false },
-      { name: "kb", displayName: "Komerční banka API", isActive: false },
-    ],
   });
 
   console.log("✅ Seed complete!");

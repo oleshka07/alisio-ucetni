@@ -27,12 +27,12 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
   const isOwner = session?.role === "owner";
   const [docs, archivedCount, companies] = await Promise.all([
     prisma.document.findMany({
-      where: archive ? { archivedAt: { not: null } } : { links: { none: {} }, task: null, archivedAt: null },
+      where: archive ? { archivedAt: { not: null }, companyDoc: false } : { links: { none: {} }, task: null, archivedAt: null, companyDoc: false },
       orderBy: archive ? { archivedAt: "desc" } : { createdAt: "desc" },
       take: archive ? 200 : 50,
       include: { client: true },
     }),
-    prisma.document.count({ where: { archivedAt: { not: null } } }),
+    prisma.document.count({ where: { archivedAt: { not: null }, companyDoc: false } }),
     prisma.client.findMany({ where: { isActive: true, type: "company" }, select: { id: true, name: true }, orderBy: { createdAt: "asc" } }),
   ]);
   const withCandidates = await Promise.all(docs.map(async (d) => ({ doc: d, candidates: archive ? [] : await findCandidates(d, 3) })));
