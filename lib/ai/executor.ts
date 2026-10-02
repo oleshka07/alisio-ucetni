@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { safeProfileData } from "@/lib/profile-fields";
 
 // Context for file operations (set per-request)
 let currentFileContext: { base64: string; fileName: string; mimeType: string } | null = null;
@@ -142,8 +143,8 @@ async function createClient(args: Record<string, unknown>): Promise<string> {
   const name = args.name as string;
   const type = args.type as string;
   const role = args.role as string;
-  const companyData = args.company as Record<string, unknown> | undefined;
-  const employeeData = args.employee as Record<string, unknown> | undefined;
+  const companyData = safeProfileData("company", args.company);
+  const employeeData = safeProfileData("employee", args.employee);
 
   const client = await prisma.client.create({
     data: {
@@ -161,11 +162,12 @@ async function createClient(args: Record<string, unknown>): Promise<string> {
 
 async function updateClient(args: Record<string, unknown>): Promise<string> {
   const clientId = args.clientId as string;
-  const basic = args.basic as Record<string, unknown> | undefined;
-  const company = args.company as Record<string, unknown> | undefined;
-  const employee = args.employee as Record<string, unknown> | undefined;
-  const tax = args.tax as Record<string, unknown> | undefined;
-  const insurance = args.insurance as Record<string, unknown> | undefined;
+  // AI може змінювати лише прості поля профілю (ні коду доступу, ні вкладених записів)
+  const basic = safeProfileData("basic", args.basic);
+  const company = safeProfileData("company", args.company);
+  const employee = safeProfileData("employee", args.employee);
+  const tax = safeProfileData("tax", args.tax);
+  const insurance = safeProfileData("insurance", args.insurance);
 
   await prisma.$transaction(async (tx) => {
     if (basic) {

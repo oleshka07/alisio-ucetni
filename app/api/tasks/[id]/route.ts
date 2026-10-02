@@ -46,6 +46,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  // мазати úkoly може лише співробітник (не клієнт порталу) — це й дедлайни датових схранок
+  const session = await getSession();
+  if (!session || session.role === "client") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   try {
     const { id } = await params;
     const task = await prisma.task.findUnique({ where: { id }, select: { clientId: true } });

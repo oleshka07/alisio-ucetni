@@ -5,6 +5,7 @@ import { handle, requireStaff, HttpError } from "@/lib/guard";
 import { readFile } from "@/lib/storage";
 import { monthRange } from "@/lib/format";
 import { CATEGORIES, DOC_STATUS, docTypeLabel } from "@/lib/docs/types";
+import { methodLabel } from "@/lib/docs/manual-payment";
 
 export const maxDuration = 60;
 
@@ -52,7 +53,7 @@ export const GET = handle(async (req: NextRequest) => {
     rows.push(
       [
         tx.bookingDate.toISOString().slice(0, 10),
-        tx.bankAccount?.name || "",
+        tx.paymentMethod ? `${methodLabel(tx.paymentMethod)} (mimo banku)` : tx.bankAccount?.name || "",
         Number(tx.amount).toFixed(2).replace(".", ","),
         tx.currency,
         tx.counterpartyName,

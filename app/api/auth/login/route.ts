@@ -31,7 +31,8 @@ async function bootstrapOwner(email: string, password: string) {
 }
 
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  // nginx ставить X-Real-IP = $remote_addr; перший елемент X-Forwarded-For задає сам клієнт — для ліміту не годиться
+  const ip = req.headers.get("x-real-ip") || req.headers.get("x-forwarded-for")?.split(",").pop()?.trim() || "local";
   if (tooMany(ip)) {
     return NextResponse.json({ error: "Příliš mnoho pokusů, zkuste to za 15 minut" }, { status: 429 });
   }

@@ -8,11 +8,13 @@ import { cn } from "@/lib/utils";
 import { fmtAmount, fmtDate } from "@/lib/format";
 import { CATEGORIES, DOC_TYPES, docTypeLabel } from "@/lib/docs/types";
 import { requirementCoverage } from "@/lib/docs/rules";
+import { methodLabel } from "@/lib/docs/manual-payment";
+import DocEditButton from "@/components/finance/DocEditButton";
 import StatusBadge from "@/components/finance/StatusBadge";
 import FileDrop from "@/components/finance/FileDrop";
 import ActionButton from "@/components/finance/ActionButton";
 import RequestForm from "@/components/finance/RequestForm";
-import { ArrowLeft, FileText, ExternalLink, Unlink, Link2, Lightbulb, CheckCircle2, Clock } from "lucide-react";
+import { ArrowLeft, FileText, ExternalLink, Unlink, Link2, Lightbulb, CheckCircle2, Clock, Trash2 } from "lucide-react";
 
 export default async function TransactionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -31,6 +33,7 @@ export default async function TransactionPage({ params }: { params: Promise<{ id
   const amount = Number(tx.amount);
   const linkedTypes = tx.links.map((l) => l.document.docType);
   const coverage = requirementCoverage(tx.requiredDocs, linkedTypes);
+  const companies = await prisma.client.findMany({ where: { isActive: true, type: "company" }, select: { id: true, name: true }, orderBy: { createdAt: "asc" } });
   const unassigned = await prisma.document.findMany({
     where: { links: { none: {} }, archivedAt: null, OR: [{ clientId: tx.clientId }, { clientId: null }] },
     orderBy: { createdAt: "desc" },
@@ -45,7 +48,7 @@ export default async function TransactionPage({ params }: { params: Promise<{ id
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm text-muted-foreground">{fmtDate(tx.bookingDate)} · {tx.client.name}{tx.bankAccount ? ` · ${tx.bankAccount.name}` : ""}</p>
+          <p className="text-sm text-muted-foreground">{fmtDate(tx.bookingDate)} · {tx.client.name}{tx.paymentMethod ? ` · ${methodLabel(tx.paymentMethod)} (mimo banku)` : tx.bankAccount ? ` · ${tx.bankAccount.name}` : ""}</p>
           <h1 className={cn("text-3xl font-bold tabular-nums", amount > 0 ? "text-emerald-600" : "text-foreground")}>{fmtAmount(amount, tx.currency)}</h1>
           <p className="text-lg font-medium mt-1">{tx.counterpartyName || tx.counterpartyAccount || "—"}</p>
         </div>
@@ -96,6 +99,21 @@ export default async function TransactionPage({ params }: { params: Promise<{ id
                         {` · nahráno ${fmtDate(l.createdAt)} (${l.linkedBy})`}
                       </p>
                     </div>
+                    <DocEditButton
+                      clients={companies}
+                      doc={{
+                        id: l.document.id,
+                        originalName: l.document.originalName,
+                        clientId: l.document.clientId,
+                        extractedCounterparty: l.document.extractedCounterparty,
+                        extractedIco: l.document.extractedIco,
+                        extractedNumber: l.document.extractedNumber,
+                        extractedDate: l.document.extractedDate ? l.document.extractedDate.toISOString().slice(0, 10) : null,
+                        extractedAmount: l.document.extractedAmount != null ? String(l.document.extractedAmount) : null,
+                        extractedCurrency: l.document.extractedCurrency,
+                        extractedVs: l.document.extractedVs,
+                      }}
+                    />
                     <a href={`/api/documents/${l.documentId}/file`} target="_blank" className="p-1.5 text-muted-foreground hover:text-foreground"><ExternalLink className="w-4 h-4" /></a>
                     <ActionButton url={`/api/transactions/${tx.id}/documents?documentId=${l.documentId}`} method="DELETE" variant="ghost" confirm="Odpojit doklad od platby?" className="px-1.5">
                       <Unlink className="w-4 h-4" />
@@ -184,6 +202,19 @@ export default async function TransactionPage({ params }: { params: Promise<{ id
                 </ActionButton>
               )
             ) : null}
+            {tx.paymentMethod && (
+              <ActionButton
+                url={`/api/transactions/${tx.id}`}
+                method="DELETE"
+                variant="danger"
+                className="w-full justify-center"
+                confirm="Smazat tuto platbu mimo banku? Doklady se vrátí do „Nepřiřazené doklady“."
+                success="Platba smazána"
+                redirectTo="/transactions"
+              >
+                <Trash2 className="w-4 h-4" /> Smazat platbu mimo banku
+              </ActionButton>
+            )}
             {["missing", "partial"].includes(tx.docStatus) && (
               <ActionButton url={`/api/transactions/${tx.id}`} method="PATCH" body={{ action: "snooze", days: 7 }} variant="ghost" className="w-full justify-center" success="Připomenutí odloženo o 7 dní">
                 <Clock className="w-4 h-4" /> Odložit připomínky o 7 dní

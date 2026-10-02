@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { safeProfileData } from "@/lib/profile-fields";
 import { revalidatePath } from "next/cache";
 
 // Helper: detect changed fields between old and new data
@@ -33,16 +34,22 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   try {
     const { id } = await params;
     const body = await req.json();
-    const { basic, company, employee, tax, insurance } = body;
+    // лише відомі прості поля — без вкладених записів Prisma (див. lib/profile-fields.ts)
+    const basic = safeProfileData("basic", body.basic) ?? {};
+    const company = safeProfileData("company", body.company);
+    const employee = safeProfileData("employee", body.employee);
+    const tax = safeProfileData("tax", body.tax);
+    const insurance = safeProfileData("insurance", body.insurance);
 
     // Validate access: client can only update their own profile
     const session = await getSession();
-    if (session?.role === "client" && session.clientId !== id) {
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (session.role === "client" && session.clientId !== id) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
-    // Get changedBy from query params
-    const changedBy = req.nextUrl.searchParams.get("changedBy") || "accountant";
+    // хто змінив — із сесії, не з параметра запиту
+    const changedBy = session.role === "client" ? "client" : session.role;
 
     // Load old data for audit comparison
     const oldClient = await prisma.client.findUnique({
@@ -58,12 +65,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     await prisma.$transaction(async (tx) => {
       await tx.client.update({
         where: { id },
-        data: {
-          name: basic.name,
-          type: basic.type,
-          role: basic.role,
-          color: basic.color,
-        },
+        data: basic,
       });
 
       if (company) {
