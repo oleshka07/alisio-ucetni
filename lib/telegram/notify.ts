@@ -102,7 +102,7 @@ export async function buildDigest(limit = 10): Promise<{ html: string; kb: Keybo
     OR: [{ snoozedUntil: null }, { snoozedUntil: { lt: now } }],
   };
   const soon = new Date(now.getTime() + 14 * 86400_000);
-  const [total, byClient, oldest, openReq, tasks] = await Promise.all([
+  const [total, byClient, oldest, openReq, tasks, taxSoon] = await Promise.all([
     prisma.transaction.count({ where }),
     prisma.transaction.groupBy({ by: ["clientId"], where, _count: true }),
     prisma.transaction.findMany({ where, orderBy: { bookingDate: "asc" }, take: limit, include: { client: true } }),
@@ -119,13 +119,19 @@ export async function buildDigest(limit = 10): Promise<{ html: string; kb: Keybo
       orderBy: [{ dueDate: "asc" }],
       take: 8,
     }),
+    prisma.taxEvent.findMany({ where: { status: "upcoming", dueDate: { lte: soon } }, include: { client: true }, orderBy: { dueDate: "asc" }, take: 10 }),
   ]);
-  if (!total && !openReq.length && !tasks.length) return null;
+  if (!total && !openReq.length && !tasks.length && !taxSoon.length) return null;
 
   const clients = await prisma.client.findMany({ where: { id: { in: byClient.map((b) => b.clientId) } } });
   const name = (id: string) => clients.find((c) => c.id === id)?.name || "—";
 
   const lines: string[] = [];
+  if (taxSoon.length) {
+    lines.push("🧾 <b>Податкові строки (14 днів)</b>");
+    for (const e of taxSoon) lines.push(`• ${fmtDate(e.dueDate)} — ${esc(e.title.slice(0, 80))} · ${esc(e.client.name)}${e.dueDate < now ? " ❗️" : ""}`);
+    lines.push("");
+  }
   if (tasks.length) {
     lines.push("🔔 <b>Не забути</b>");
     for (const t of tasks) {
@@ -214,6 +220,41 @@ export async function sendUrgentReminders() {
     await prisma.task.update({ where: { id: t.id }, data: { lastRemindedAt: now } });
   }
   return { tasks: tasks.length, sent };
+}
+
+/**
+ * Податкові строки: нагадування за 7 днів, за 2 дні, у день строку і щодня після (прострочено),
+ * не частіше разу на день. Кнопка «Готово» закриває строк.
+ */
+export async function sendTaxReminders() {
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  const events = await prisma.taxEvent.findMany({
+    where: {
+      status: "upcoming",
+      dueDate: { lte: new Date(today.getTime() + 7 * 86400_000) },
+      OR: [{ lastRemindedAt: null }, { lastRemindedAt: { lt: today } }],
+    },
+    include: { client: true },
+    orderBy: { dueDate: "asc" },
+    take: 30,
+  });
+  let sent = 0;
+  for (const e of events) {
+    const days = Math.round((e.dueDate.getTime() - today.getTime()) / 86400_000);
+    if (![7, 2, 0].includes(days) && days > 0) continue; // 6, 5, 4, 3, 1 день — без повідомлення
+    const when = days < 0 ? `прострочено на ${-days} дн. ❗️` : days === 0 ? "сьогодні" : `через ${days} дн.`;
+    const what = [e.files && "подати", e.pays && "сплатити"].filter(Boolean).join(" і ");
+    const html = [`🧾 <b>${esc(e.title)}</b>`, `Строк: ${fmtDate(e.dueDate)} (${when})${what ? ` — ${what}` : ""}`, `Компанія: ${esc(e.client.name)}`, e.note ? `<i>${esc(e.note)}</i>` : ""]
+      .filter(Boolean)
+      .join("\n");
+    sent += await notifyOwners("tax_reminder", e.id, html, [
+      [{ text: e.pays ? "✅ Сплачено" : "✅ Подано", data: `XD:${e.id}` }],
+      [{ text: "Календар", url: appUrl("/calendar") }],
+    ]);
+    await prisma.taxEvent.update({ where: { id: e.id }, data: { lastRemindedAt: now } });
+  }
+  return { events: events.length, sent };
 }
 
 /**

@@ -8,6 +8,7 @@ import type { ParsedStatement } from "./types";
 import { fetchFioPeriod } from "./fio";
 import { importStatement, resolveAccountForStatement, sameAccount, findAccountForStatement } from "./import";
 import { putFile, extFromName } from "@/lib/storage";
+import { matchTaxPayments } from "@/lib/tax/sync";
 import { matchUnassignedDocuments } from "@/lib/docs/ingest";
 import { notifyOwners, txLine, reportSyncHealth } from "@/lib/telegram/notify";
 import { esc } from "@/lib/telegram/api";
@@ -219,6 +220,8 @@ export async function importStatementFiles(files: Array<{ name: string; content:
 
 /** Після нових платежів — дочепити документи, що чекали, і сповістити. */
 export async function afterImport(clientId: string): Promise<number> {
+  // platby daní → termíny v daňovém kalendáři
+  await matchTaxPayments(clientId).catch((e) => console.error("matchTaxPayments", e));
   const linked = await matchUnassignedDocuments(clientId);
   if (linked.length) {
     const lines = [`🔗 <b>Автоматично прив'язав ${linked.length} документ(и) до нових платежів</b>`];

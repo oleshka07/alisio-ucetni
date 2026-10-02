@@ -2,6 +2,8 @@
 CRON_TZ=Europe/Prague
 # Виписки + пошта (фактури, датові схранки): кожні 15 хв з 6:00 до 22:59
 */15 6-22 * * * /root/projects/alisio-ucetni/deploy/cron.sh sync >> /var/log/alisio-ucetni-cron.log 2>&1
+# Податковий календар: згенерувати строки на 4 місяці, зіставити платежі — щодня 6:10
+10 6 * * * /root/projects/alisio-ucetni/deploy/cron.sh tax-calendar >> /var/log/alisio-ucetni-cron.log 2>&1
 # Дедлайни ≤ 2 дні (фікція доручення, податки): щодня 8:40
 40 8 * * * /root/projects/alisio-ucetni/deploy/cron.sh reminders >> /var/log/alisio-ucetni-cron.log 2>&1
 # Дайджест «чого бракує»: понеділок і четвер 8:55

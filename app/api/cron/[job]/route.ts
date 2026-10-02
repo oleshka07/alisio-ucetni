@@ -3,7 +3,8 @@ import { getSession } from "@/lib/auth";
 import { isCronRequest } from "@/lib/guard";
 import { syncAllBankAccounts } from "@/lib/bank/sync";
 import { syncAllDocumentInboxes } from "@/lib/docs/inbox-sync";
-import { sendDigest, sendUrgentReminders } from "@/lib/telegram/notify";
+import { sendDigest, sendUrgentReminders, sendTaxReminders } from "@/lib/telegram/notify";
+import { syncTaxCalendar } from "@/lib/tax/sync";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -13,7 +14,8 @@ export const maxDuration = 60;
  * crontab/n8n на VPS (?key=CRON_SECRET) або власником з інтерфейсу (POST).
  *   /api/cron/sync    — виписки + пошта з документами
  *   /api/cron/digest  — нагадування в Telegram (пн, чт)
- *   /api/cron/reminders — щодня: дедлайни ≤ 2 дні (фікція доручення, податки)
+ *   /api/cron/reminders — щодня: дедлайни ≤ 2 дні (фікція доручення) + податкові строки (7 / 2 / 0 днів, прострочені)
+ *   /api/cron/tax-calendar — щодня: згенерувати податкові строки на 4 місяці, зіставити платежі
  */
 async function run(job: string, force: boolean) {
   switch (job) {
@@ -26,7 +28,9 @@ async function run(job: string, force: boolean) {
     case "digest":
       return { digest: await sendDigest(force) };
     case "reminders":
-      return { reminders: await sendUrgentReminders() };
+      return { reminders: await sendUrgentReminders(), tax: await sendTaxReminders() };
+    case "tax-calendar":
+      return { taxCalendar: await syncTaxCalendar() };
     default:
       return null;
   }

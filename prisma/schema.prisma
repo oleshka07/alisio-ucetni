@@ -63,6 +63,19 @@ model CompanyProfile {
   legalForm        String? // s.r.o., a.s., OSVČ ...
   businessActivity String?
   notes            String?
+
+  // ── Daňový kalendář (lib/tax/calendar.ts) ──
+  taxCalendar        Boolean @default(true)
+  taxEntity          String? // legal | osvc (prázdné = podle legalForm)
+  euSupplies         Boolean @default(false)
+  hasEmployees       Boolean @default(false)
+  hasWithholding     Boolean @default(false)
+  incomeTaxFiling    String  @default("standard") // standard | electronic | advisor
+  incomeTaxAdvances  String  @default("none") // none | half | quarter
+  flatTax            Boolean @default(false)
+  roadTaxVehicles    Boolean @default(false)
+  ownsRealEstate     Boolean @default(false)
+  propertyTaxSplit   Boolean @default(false)
 }
 
 // ─── Дані працівника/директора ────────────────────────────────────────────────
@@ -261,6 +274,21 @@ model TaxEvent {
   period      String? // "2025-01" "2025-Q1" "2025"
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  // ── automatický daňový kalendář ──
+  key               String? // "vat:2026-09" — jedinečný v rámci firmy
+  kind              String? // vat | kh | income_return | payroll …
+  source            String   @default("manual") // auto | manual
+  files             Boolean  @default(false)
+  pays              Boolean  @default(false)
+  accountPrefix     String?
+  note              String?
+  doneAt            DateTime?
+  paidTransactionId String?
+  lastRemindedAt    DateTime?
+
+  @@unique([clientId, key])
+  @@index([dueDate])
 }
 
 // ─── API інтеграції (для майбутнього) ─────────────────────────────────────────
