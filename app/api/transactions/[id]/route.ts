@@ -61,3 +61,16 @@ export const PATCH = handle(async (req: NextRequest, { params }: Ctx) => {
   revalidatePath(`/transactions/${id}`);
   return NextResponse.json({ ok: true });
 });
+
+/** Видалити можна лише платіж мимо банку (створений вручну); документи до нього повертаються в «Nepřiřazené». */
+export const DELETE = handle(async (_req: NextRequest, { params }: Ctx) => {
+  await requireStaff();
+  const { id } = await params;
+  const tx = await prisma.transaction.findUnique({ where: { id } });
+  if (!tx) throw new HttpError(404, "Platba nenalezena");
+  if (!tx.paymentMethod) throw new HttpError(400, "Platbu z bankovního výpisu nelze smazat — smažte celý výpis v sekci Výpisy");
+  await prisma.transaction.delete({ where: { id } });
+  revalidatePath("/transactions");
+  revalidatePath("/inbox");
+  return NextResponse.json({ ok: true });
+});

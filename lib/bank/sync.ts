@@ -9,7 +9,7 @@ import { fetchFioPeriod } from "./fio";
 import { importStatement, resolveAccountForStatement, sameAccount, findAccountForStatement } from "./import";
 import { putFile, extFromName } from "@/lib/storage";
 import { matchUnassignedDocuments } from "@/lib/docs/ingest";
-import { notifyOwners, txLine } from "@/lib/telegram/notify";
+import { notifyOwners, txLine, reportSyncHealth } from "@/lib/telegram/notify";
 import { esc } from "@/lib/telegram/api";
 
 export interface SyncReport {
@@ -92,14 +92,16 @@ export async function syncBankAccount(account: BankAccount): Promise<SyncReport>
     else if (account.source === "imap_camt") await syncImap(account, report);
     else report.notes.push("Ruční import — synchronizace se nespouští");
     if (report.imported > 0) report.matchedDocuments = await afterImport(account.clientId);
+    const failCount = await reportSyncHealth({ kind: "bank", refId: account.id, name: account.name, prevFailCount: account.failCount, notes: report.notes });
     await prisma.bankAccount.update({
       where: { id: account.id },
-      data: { lastSyncAt: new Date(), lastError: report.notes.length ? report.notes.join("; ").slice(0, 500) : null },
+      data: { lastSyncAt: new Date(), lastError: report.notes.length ? report.notes.join("; ").slice(0, 500) : null, failCount },
     });
   } catch (e) {
     report.ok = false;
     report.error = e instanceof Error ? e.message : String(e);
-    await prisma.bankAccount.update({ where: { id: account.id }, data: { lastError: report.error.slice(0, 500) } });
+    const failCount = await reportSyncHealth({ kind: "bank", refId: account.id, name: account.name, prevFailCount: account.failCount, error: report.error }).catch(() => account.failCount + 1);
+    await prisma.bankAccount.update({ where: { id: account.id }, data: { lastError: report.error.slice(0, 500), failCount } });
   }
   return report;
 }

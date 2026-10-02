@@ -330,6 +330,7 @@ model BankAccount {
 
   lastSyncAt DateTime?
   lastError  String?
+  failCount  Int       @default(0) // збоїв синхронізації поспіль — для сповіщень у Telegram
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
@@ -378,6 +379,7 @@ model Transaction {
   message             String?
   externalId          String? // ID руху в банку
   dedupHash           String
+  paymentMethod       String? // null — з виписки; cash | private_card | other — оплачено мимо банківського рахунку
 
   category        String? // customer | supplier | tax | salary | internal | fee | ads_foreign | import | other
   requiredDocs    String[]  @default([])
@@ -468,6 +470,7 @@ model DocumentInbox {
   isActive        Boolean   @default(true)
   lastSyncAt      DateTime?
   lastError       String?
+  failCount       Int       @default(0) // збоїв синхронізації поспіль — для сповіщень у Telegram
   createdAt       DateTime  @default(now())
 }
 

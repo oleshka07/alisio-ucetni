@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
 import { fmtAmount, fmtDate, monthRange } from "@/lib/format";
 import { CATEGORIES } from "@/lib/docs/types";
+import { methodLabel } from "@/lib/docs/manual-payment";
 import StatusBadge from "@/components/finance/StatusBadge";
 import FileDrop from "@/components/finance/FileDrop";
 import ActionButton from "@/components/finance/ActionButton";
@@ -159,7 +160,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
                         {tx.counterpartyName || tx.message || tx.counterpartyAccount || "—"}
                       </Link>
                       <p className="text-xs text-muted-foreground truncate">
-                        {[tx.counterpartyName && tx.message, tx.variableSymbol && `VS ${tx.variableSymbol}`, clients.length > 1 && tx.client.name, tx.bankAccount?.name]
+                        {[tx.counterpartyName && tx.message, tx.variableSymbol && `VS ${tx.variableSymbol}`, clients.length > 1 && tx.client.name, tx.paymentMethod ? `${methodLabel(tx.paymentMethod)} (mimo banku)` : tx.bankAccount?.name]
                           .filter(Boolean)
                           .join(" · ")}
                       </p>

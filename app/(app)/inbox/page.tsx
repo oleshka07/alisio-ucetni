@@ -10,6 +10,10 @@ import { fmtAmount, fmtDate } from "@/lib/format";
 import FileDrop from "@/components/finance/FileDrop";
 import ActionButton from "@/components/finance/ActionButton";
 import DocTypeSelect from "@/components/finance/DocTypeSelect";
+import DocEditButton from "@/components/finance/DocEditButton";
+import ManualPaymentButton from "@/components/finance/ManualPaymentButton";
+import BulkBar, { SelectAll } from "@/components/finance/BulkBar";
+import { manualPaymentBlocker } from "@/lib/docs/manual-payment";
 import { Archive, ArchiveRestore, FileText, Link2, Mail, Send, Trash2, Upload } from "lucide-react";
 
 // причини збігу приходять українською (їх же показує Telegram-бот)
@@ -21,7 +25,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
   const archive = (await searchParams).view === "archive";
   const session = await getSession();
   const isOwner = session?.role === "owner";
-  const [docs, archivedCount] = await Promise.all([
+  const [docs, archivedCount, companies] = await Promise.all([
     prisma.document.findMany({
       where: archive ? { archivedAt: { not: null } } : { links: { none: {} }, task: null, archivedAt: null },
       orderBy: archive ? { archivedAt: "desc" } : { createdAt: "desc" },
@@ -29,6 +33,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
       include: { client: true },
     }),
     prisma.document.count({ where: { archivedAt: { not: null } } }),
+    prisma.client.findMany({ where: { isActive: true, type: "company" }, select: { id: true, name: true }, orderBy: { createdAt: "asc" } }),
   ]);
   const withCandidates = await Promise.all(docs.map(async (d) => ({ doc: d, candidates: archive ? [] : await findCandidates(d, 3) })));
 
@@ -64,18 +69,20 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-x-auto">
-          <table className="w-full min-w-[960px] table-fixed text-sm">
+          <table className="w-full min-w-[1040px] table-fixed text-sm">
             <colgroup>
+              <col className="w-10" />
               <col />
               <col className="w-40" />
-              <col className="w-[22%]" />
+              <col className="w-[18%]" />
               <col className="w-28" />
               <col className="w-28" />
               <col className="w-32" />
-              <col className={archive ? "w-36" : "w-14"} />
+              <col className={archive ? "w-36" : "w-32"} />
             </colgroup>
             <thead className="bg-muted/40 text-xs text-muted-foreground">
               <tr>
+                <th className="pl-4 py-2 text-left"><SelectAll /></th>
                 <th className="text-left font-medium px-4 py-2">Doklad</th>
                 <th className="text-left font-medium px-4 py-2">Typ</th>
                 <th className="text-left font-medium px-4 py-2">Protistrana</th>
@@ -91,6 +98,9 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
                 return (
                   <Fragment key={doc.id}>
                     <tr className="border-t border-border hover:bg-accent/50 align-top">
+                      <td className="pl-4 py-3">
+                        <input type="checkbox" name="docSel" value={doc.id} aria-label={`Vybrat ${doc.originalName}`} className="w-4 h-4 accent-primary" />
+                      </td>
                       <td className="px-4 py-2.5">
                         <div className="flex items-start gap-2">
                           <Icon className="w-3.5 h-3.5 text-muted-foreground mt-1 shrink-0" />
@@ -135,16 +145,34 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
                             )}
                           </div>
                         ) : (
-                          <ActionButton url={`/api/documents/${doc.id}`} method="PATCH" body={{ archived: true }} variant="ghost" className="px-2" success="Přesunuto do archivu" title="Archivovat — zbytečný nebo omylem nahraný doklad">
-                            <Archive className="w-4 h-4" />
-                          </ActionButton>
+                          <div className="inline-flex items-center">
+                            <DocEditButton
+                              clients={companies}
+                              doc={{
+                                id: doc.id,
+                                originalName: doc.originalName,
+                                clientId: doc.clientId,
+                                extractedCounterparty: doc.extractedCounterparty,
+                                extractedIco: doc.extractedIco,
+                                extractedNumber: doc.extractedNumber,
+                                extractedDate: doc.extractedDate ? doc.extractedDate.toISOString().slice(0, 10) : null,
+                                extractedAmount: doc.extractedAmount != null ? String(doc.extractedAmount) : null,
+                                extractedCurrency: doc.extractedCurrency,
+                                extractedVs: doc.extractedVs,
+                              }}
+                            />
+                            <ManualPaymentButton documentId={doc.id} blocker={manualPaymentBlocker(doc)} />
+                            <ActionButton url={`/api/documents/${doc.id}`} method="PATCH" body={{ archived: true }} variant="ghost" className="px-2" success="Přesunuto do archivu" title="Archivovat — zbytečný nebo omylem nahraný doklad">
+                              <Archive className="w-4 h-4" />
+                            </ActionButton>
+                          </div>
                         )}
                       </td>
                     </tr>
                     {candidates.length > 0 && (
                       <tr className="bg-muted/20">
-                        <td colSpan={7} className="px-4 pb-2.5 pt-1">
-                          <div className="pl-5 space-y-1">
+                        <td colSpan={8} className="px-4 pb-2.5 pt-1">
+                          <div className="pl-12 space-y-1">
                             <p className="text-xs font-medium text-muted-foreground">Možné platby:</p>
                             {candidates.map((c) => (
                               <div key={c.tx.id} className="flex flex-wrap items-center gap-2 text-sm">
@@ -168,6 +196,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
           </table>
         </div>
       )}
+      <BulkBar archive={archive} isOwner={isOwner} clients={companies} />
     </div>
   );
 }

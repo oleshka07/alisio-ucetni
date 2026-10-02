@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { putFile } from "@/lib/storage";
+import { putFile, extFromName } from "@/lib/storage";
 import { sha256Hex } from "@/lib/crypto";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Сховище: Vercel Blob або локальний диск (lib/storage)
-    const ext = file.name.includes(".") ? "." + file.name.split(".").pop() : "";
+    const ext = extFromName(file.name); // лише [a-z0-9]{1,6} — без "/" і ".." у ключі сховища
     const blobName = `documents/${clientId}/${crypto.randomUUID()}${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
     const fileUrl = await putFile(blobName, buffer, file.type);

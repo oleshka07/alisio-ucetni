@@ -17,6 +17,8 @@ type Props = {
   success?: string;
   onDone?: (data: unknown) => void;
   title?: string;
+  /** куди перейти після успіху (напр. після видалення) */
+  redirectTo?: string;
 };
 
 export const btn = {
@@ -26,7 +28,7 @@ export const btn = {
   danger: "bg-card border border-red-200 text-red-600 hover:bg-red-50",
 };
 
-export default function ActionButton({ url, method = "POST", body, children, className, variant = "secondary", confirm, success, onDone, title }: Props) {
+export default function ActionButton({ url, method = "POST", body, children, className, variant = "secondary", confirm, success, onDone, title, redirectTo }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
@@ -43,7 +45,8 @@ export default function ActionButton({ url, method = "POST", body, children, cla
       if (!res.ok) throw new Error(data.error || `Chyba ${res.status}`);
       if (success) toast.success(success);
       onDone?.(data);
-      router.refresh();
+      if (redirectTo) router.push(redirectTo);
+      else router.refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Chyba");
     } finally {

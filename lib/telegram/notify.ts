@@ -215,3 +215,42 @@ export async function sendUrgentReminders() {
   }
   return { tasks: tasks.length, sent };
 }
+
+/**
+ * Стан синхронізації рахунку / скриньки → Telegram.
+ * Збій з'єднання — лише з 2-го поспіль (≈30 хв), щоб разові таймаути не спамили; відновлення — коли було сповіщення.
+ * Примітки (виписка не пройшла звірку, чужий рахунок) — одразу: це разова подія з конкретним файлом.
+ */
+export async function reportSyncHealth(opts: {
+  kind: "bank" | "inbox";
+  refId: string;
+  name: string;
+  prevFailCount: number;
+  error?: string | null;
+  notes?: string[];
+}): Promise<number> {
+  const what = opts.kind === "bank" ? "Рахунок" : "Скринька";
+  const where = appUrl(opts.kind === "bank" ? "/statements" : "/settings");
+  if (opts.error) {
+    const failCount = opts.prevFailCount + 1;
+    if (failCount === 2) {
+      await notifyOwners(
+        "sync_error",
+        opts.refId,
+        `⚠️ <b>${what} «${esc(opts.name)}»: синхронізація не працює</b>\n${esc(opts.error.slice(0, 300))}\n\nПеревірте налаштування: ${where}`
+      );
+    }
+    return failCount;
+  }
+  if (opts.prevFailCount >= 2) {
+    await notifyOwners("sync_ok", opts.refId, `✅ ${what} «${esc(opts.name)}»: синхронізація знову працює`);
+  }
+  if (opts.notes?.length) {
+    await notifyOwners(
+      "sync_note",
+      opts.refId,
+      `⚠️ <b>${what} «${esc(opts.name)}»</b>\n${opts.notes.slice(0, 5).map((n) => `• ${esc(n.slice(0, 300))}`).join("\n")}\n\n${where}`
+    );
+  }
+  return 0;
+}

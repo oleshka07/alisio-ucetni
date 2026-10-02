@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { decryptSecret } from "@/lib/crypto";
 import { fetchNewMail } from "@/lib/mail/imap";
 import { ingestDocument } from "./ingest";
-import { ingestReply, notifyOwners } from "@/lib/telegram/notify";
+import { ingestReply, notifyOwners, reportSyncHealth } from "@/lib/telegram/notify";
 import { isDataBoxNotification } from "@/lib/databox/notification";
 import { handleDataBoxMail } from "@/lib/databox/handle";
 import { isBankStatementFile } from "@/lib/bank/kb-pdf";
@@ -107,14 +107,16 @@ export async function syncDocumentInbox(inbox: DocumentInbox): Promise<InboxRepo
         }
       }
     }
+    const failCount = await reportSyncHealth({ kind: "inbox", refId: inbox.id, name: inbox.name, prevFailCount: inbox.failCount });
     await prisma.documentInbox.update({
       where: { id: inbox.id },
-      data: { lastUid: res.maxUid, lastSyncAt: new Date(), lastError: null },
+      data: { lastUid: res.maxUid, lastSyncAt: new Date(), lastError: null, failCount },
     });
   } catch (e) {
     report.ok = false;
     report.error = e instanceof Error ? e.message : String(e);
-    await prisma.documentInbox.update({ where: { id: inbox.id }, data: { lastError: report.error.slice(0, 500) } });
+    const failCount = await reportSyncHealth({ kind: "inbox", refId: inbox.id, name: inbox.name, prevFailCount: inbox.failCount, error: report.error }).catch(() => inbox.failCount + 1);
+    await prisma.documentInbox.update({ where: { id: inbox.id }, data: { lastError: report.error.slice(0, 500), failCount } });
   }
   return report;
 }
