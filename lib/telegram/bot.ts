@@ -155,6 +155,14 @@ async function handleCallback(user: User, cb: any) {
     if (messageId && kind === "TD") await editMessage(chatId, messageId, `✅ Закрито: ${esc(task.title)}`);
     return;
   }
+  if (kind === "XD") {
+    const ev = await prisma.taxEvent.findUnique({ where: { id: a } });
+    if (!ev) return answerCallback(cb.id, "Строк не знайдено");
+    await prisma.taxEvent.update({ where: { id: a }, data: { status: ev.pays ? "paid" : "done", doneAt: new Date() } });
+    await answerCallback(cb.id, "Позначено");
+    if (messageId) await editMessage(chatId, messageId, `✅ ${esc(ev.title)}`);
+    return;
+  }
   if (kind === "M") {
     await answerCallback(cb.id);
     return sendMissing(chatId);
