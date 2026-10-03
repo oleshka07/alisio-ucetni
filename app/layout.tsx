@@ -7,6 +7,7 @@ import SplashScreen from "@/components/SplashScreen";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.APP_URL || "https://ucetni.rozum.one"),
   title: "ALISIO Accounting",
   description: "Účetní kabinet",
 };
