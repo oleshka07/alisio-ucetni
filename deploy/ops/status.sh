@@ -14,3 +14,7 @@ echo "== inboxes (після)";       q 'select name, "lastSyncAt", left("lastEr
 echo "== counts"; q 'select (select count(*) from "Transaction") tx, (select count(*) from "Document") docs, (select count(*) from "DataBoxMessage") databox, (select count(*) from "Task") tasks'
 echo "== cron log (помилки)"; grep -icE 'error|fail|curl:' /var/log/alisio-ucetni-cron.log 2>/dev/null; tail -5 /var/log/alisio-ucetni-cron.log 2>/dev/null | mask
 echo "== app log: errors за 3 год"; journalctl -u alisio-ucetni --since "-3h" --no-pager -o cat | grep -iE 'error|⨯|warn' | grep -v EADDRINUSE | tail -15 | mask
+echo "== tax profile"; q 'select c.name, p."taxCalendar", p."vatPayer", p."vatPeriod", p."hasEmployees", p."incomeTaxAdvances", p."incomeTaxFiling", (p.dic is not null) dic, (p."dataBox" is not null) databox from "Client" c left join "CompanyProfile" p on p."clientId"=c.id'
+echo "== tax events"; q 'select status, count(*) from "TaxEvent" group by status'
+echo "== statements"; q 'select b.name, b.currency, count(s.id), count(s."fileUrl") from "BankAccount" b left join "BankStatement" s on s."bankAccountId"=b.id group by b.name, b.currency'
+echo "== databox tasks"; q 'select status, left(title,60) from "Task" where source='"'"'databox'"'"''
