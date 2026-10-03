@@ -52,13 +52,19 @@ export function parseDataBoxNotification(subject: string, text: string, emailDat
     line(t, /(?:ID|identifik[áa]tor|identifikace|[čc][íi]slo)\s+(?:datov[ée]\s+)?zpr[áa]vy\s*[:\-]?\s*(\d{5,12})/i) ||
     line(t, /zpr[áa]va\s+(?:č\.|[čc][íi]slo|ID)\s*[:\-]?\s*(\d{5,12})/i);
 
-  const dataBoxId = line(t, /(?:ID|identifik[áa]tor)\s+(?:datov[ée]\s+)?schr[áa]nky\s*[:\-]?\s*([a-z0-9]{7})\b/i);
+  // formát ISDS: „Adresát: *Jméno* (schránka: abc1234)“ nebo „ID schránky: abc1234 (Jméno)“
+  const dataBoxId =
+    line(t, /(?:ID|identifik[áa]tor)\s+(?:datov[ée]\s+)?schr[áa]nky\s*[:\-]?\s*([a-z0-9]{7})\b/i) ||
+    line(t, /\(\s*(?:datov[áa]\s+)?schr[áa]nka\s*[:\-]?\s*([a-z0-9]{7})\s*\)/i);
 
-  const dataBoxName =
+  const rawName =
     line(t, /(?:schr[áa]nky|schr[áa]nce)\s*[:\-]?\s*[a-z0-9]{7}\s*\(([^)\n]{2,120})\)/i) ||
     line(t, /(?:Adres[áa]t|P[řr][íi]jemce|Majitel\s+schr[áa]nky|Dr[žz]itel\s+schr[áa]nky)\s*:\s*([^\n]{2,120})/i);
+  const dataBoxName = rawName
+    ? rawName.replace(/\(\s*(?:datov[áa]\s+)?schr[áa]nka\s*[:\-]?\s*[a-z0-9]{7}\s*\)/i, "").replace(/[*_]/g, "").trim() || null
+    : null;
 
-  const sender = line(t, /Odes[íi]latel\s*(?:zpr[áa]vy)?\s*:\s*([^\n]{2,160})/i);
+  const sender = line(t, /Odes[íi]latel\s*(?:zpr[áa]vy)?\s*:\s*([^\n]{2,160})/i)?.replace(/[*_]/g, "").trim() || null;
   const subj =
     line(t, /(?:V[ěe]c|P[řr]edm[ěe]t(?:\s+zpr[áa]vy)?)\s*:\s*([^\n]{1,250})/i);
 
