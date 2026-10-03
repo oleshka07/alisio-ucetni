@@ -185,9 +185,22 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-xs text-gray-400 mt-6">
-          ALISIO Accounting &copy; {new Date().getFullYear()}
+        {/* Sesterský projekt — běžné odkazy bez nofollow/UTM (SEO) */}
+        <p className="text-center text-sm text-gray-500 mt-6 leading-relaxed">
+          Evidence tržeb EET 2.0: připravujeme{" "}
+          <a href="https://evidujzdarma.cz/" className="text-indigo-600 hover:underline">
+            bezplatnou pokladnu EvidujZdarma
+          </a>{" "}
+          – sesterský projekt, který bude fungovat v mobilu i bez signálu.
         </p>
+
+        <footer className="text-center text-xs text-gray-400 mt-4 space-y-1">
+          <p>
+            <a href="https://evidujzdarma.cz/" className="hover:text-gray-600 hover:underline">EvidujZdarma</a>
+            {" – bezplatná pokladna pro EET 2.0"}
+          </p>
+          <p>ALISIO Accounting &copy; {new Date().getFullYear()}</p>
+        </footer>
       </div>
     </div>
   );
