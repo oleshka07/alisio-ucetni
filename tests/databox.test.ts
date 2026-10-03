@@ -38,3 +38,14 @@ test("falls back to e-mail date", () => {
   assert.equal(n.fictionAt?.toDateString(), new Date(2026, 8, 11).toDateString());
   assert.equal(n.important, false);
 });
+
+test("ISDS: formát „Adresát: *Jméno* (schránka: abc1234)“", () => {
+  const n = parseDataBoxNotification(
+    "Datová zpráva",
+    "Do datové schránky byla dodána zpráva.\nAdresát: *Jan Novák* (schránka: xyz7890)\nOdesílatel: *Finanční úřad pro Karlovarský kraj*\nDatum dodání: 1.10.2026 9:00",
+    null
+  );
+  assert.equal(n.dataBoxId, "xyz7890");
+  assert.equal(n.dataBoxName, "Jan Novák");
+  assert.equal(n.sender, "Finanční úřad pro Karlovarský kraj");
+});
