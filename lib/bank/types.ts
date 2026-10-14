@@ -20,4 +20,7 @@ export interface ParsedStatement {
   periodFrom: string | null;
   periodTo: string | null;
   transactions: ParsedTransaction[];
+  /** Banka a název účtu z výpisu — podle nich se výpis přiřadí firmě, když účet ještě není v systému */
+  bank?: string;
+  accountName?: string | null;
 }

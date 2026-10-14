@@ -17,6 +17,82 @@ export async function findAccountForStatement(st: ParsedStatement): Promise<Bank
   return all.find((a) => (a.accountNumber || a.iban) && sameAccount(a, st)) ?? null;
 }
 
+/** „SWIPE SCAPE S.R.O.“ і „Swipe Scape s.r.o.“ → „swipescape“ */
+export function companyKey(name: string | null | undefined): string {
+  return (name || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\b(s\.?\s?r\.?\s?o\.?|a\.?\s?s\.?|spol\.?|k\.?\s?s\.?|v\.?\s?o\.?\s?s\.?)\s*$/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+const BANK_WORDS: Record<string, string[]> = {
+  "Komerční banka": ["kb", "komercni"],
+  "Česká spořitelna": ["cs", "ceska", "cesca", "sporitelna", "csas", "george"],
+};
+
+/** Наскільки рахунок без номера схожий на рахунок з виписки (валюта, банк у назві). */
+export function accountScore(a: Pick<BankAccount, "name" | "currency">, st: ParsedStatement): number {
+  const words = companyKey(a.name) ? a.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split(/[^a-z0-9]+/) : [];
+  const cur = st.currency.toLowerCase();
+  // měna v názvu účtu váží víc než pole „měna“ (to má výchozí CZK, i když ho nikdo nenastavil)
+  let score = a.currency.toUpperCase() === st.currency ? 2 : -1;
+  if (words.includes(cur)) score += 2;
+  else if (words.some((w) => ["czk", "eur", "usd", "gbp", "pln"].includes(w))) score -= 3;
+  const bankWords = st.bank ? BANK_WORDS[st.bank] ?? [] : [];
+  const otherWords = Object.entries(BANK_WORDS).filter(([b]) => b !== st.bank).flatMap(([, w]) => w);
+  if (words.some((w) => bankWords.includes(w))) score += 1;
+  else if (words.some((w) => otherWords.includes(w))) score -= 5; // jiná banka v názvu = jiný účet
+  return score;
+}
+
+export interface AccountResolution {
+  account: BankAccount | null;
+  created?: boolean;
+  reason?: string;
+}
+
+/**
+ * Куди покласти виписку: 1) рахунок з тим самим номером/IBAN; 2) фірма за назвою рахунку у виписці →
+ * її рахунок без номера, що пасує за валютою й банком (номер допишеться); 3) нема такого — створюємо рахунок цій фірмі.
+ */
+export async function findOrCreateAccountForStatement(st: ParsedStatement): Promise<AccountResolution> {
+  const byNumber = await findAccountForStatement(st);
+  if (byNumber) return { account: byNumber };
+  const who = st.accountNumber || st.iban || "?";
+  const key = companyKey(st.accountName);
+  if (!key) return { account: null, reason: `Účet ${who} (${st.currency}) není v Nastavení → Bankovní účty a výpis neuvádí název firmy` };
+
+  const clients = await prisma.client.findMany({ where: { isActive: true }, include: { companyProfile: true, bankAccounts: { where: { isActive: true } } } });
+  const client = clients.find((c) => companyKey(c.name) === key || companyKey(c.companyProfile?.companyName) === key);
+  if (!client) {
+    return { account: null, reason: `Výpis účtu ${who} patří firmě „${st.accountName}“, která v systému není — přidejte ji v Klienti a nahrajte výpis znovu` };
+  }
+
+  const candidates = client.bankAccounts
+    .filter((a) => !a.accountNumber && !a.iban)
+    .map((a) => ({ a, score: accountScore(a, st) }))
+    .filter((x) => x.score > 0)
+    .sort((x, y) => y.score - x.score);
+  if (candidates.length && (candidates.length === 1 || candidates[0].score > candidates[1].score)) {
+    return { account: candidates[0].a };
+  }
+
+  const short = st.bank === "Česká spořitelna" ? "ČS" : st.bank === "Komerční banka" ? "KB" : st.bank || "Účet";
+  const account = await prisma.bankAccount.create({
+    data: {
+      clientId: client.id,
+      name: `${short} ${st.currency}`,
+      accountNumber: st.accountNumber && !/^[A-Z]{2}\d/.test(st.accountNumber) ? st.accountNumber : null,
+      iban: st.iban,
+      currency: st.currency,
+      source: "manual",
+    },
+  });
+  return { account, created: true };
+}
+
 export function sameAccount(acc: Pick<BankAccount, "accountNumber" | "iban">, st: ParsedStatement): boolean {
   const mine = [acc.accountNumber, acc.iban].map(normalizeAccount).filter(Boolean);
   const theirs = [st.accountNumber, st.iban].map(normalizeAccount).filter(Boolean);
@@ -30,8 +106,7 @@ export function sameAccount(acc: Pick<BankAccount, "accountNumber" | "iban">, st
  */
 export async function resolveAccountForStatement(preferred: BankAccount, st: ParsedStatement): Promise<BankAccount | null> {
   if (sameAccount(preferred, st)) return preferred;
-  const all = await prisma.bankAccount.findMany({ where: { isActive: true } });
-  return all.find((a) => a.id !== preferred.id && (a.accountNumber || a.iban) && sameAccount(a, st)) ?? null;
+  return (await findOrCreateAccountForStatement(st)).account;
 }
 
 export interface ImportResult {
@@ -61,7 +136,7 @@ export async function importStatement(
   if (!account.accountNumber && !account.iban && (st.accountNumber || st.iban)) {
     await prisma.bankAccount.update({
       where: { id: account.id },
-      data: { accountNumber: st.accountNumber && !st.accountNumber.startsWith("CZ") ? st.accountNumber : null, iban: st.iban },
+      data: { accountNumber: st.accountNumber && !st.accountNumber.startsWith("CZ") ? st.accountNumber : null, iban: st.iban, currency: st.currency },
     });
   }
 
@@ -111,8 +186,40 @@ export async function importStatement(
     };
   });
 
-  const created = rows.length ? await prisma.transaction.createMany({ data: rows, skipDuplicates: true }) : { count: 0 };
+  const fresh = await withoutOverlaps(account.id, rows);
+  const created = fresh.length ? await prisma.transaction.createMany({ data: fresh, skipDuplicates: true }) : { count: 0 };
   await prisma.bankStatement.update({ where: { id: statement.id }, data: { importedCount: created.count } });
 
   return { statementId: statement.id, total: rows.length, imported: created.count, skippedDuplicate: false };
+}
+
+type Row = { bookingDate: Date; amount: number; variableSymbol: string | null; dedupHash: string };
+
+/**
+ * Одна й та сама операція може прийти в різних форматах (PDF-виписка, CSV, «přehled plateb»),
+ * у яких різні ідентифікатори. Тому пропускаємо операцію, якщо на рахунку вже є така ж
+ * за датою й сумою (і VS, коли він є з обох боків). Кожна наявна операція «закриває» лише одну нову,
+ * тож дві справді однакові платби в одній виписці не зіллються.
+ */
+export async function withoutOverlaps<T extends Row>(bankAccountId: string, rows: T[]): Promise<T[]> {
+  if (!rows.length) return rows;
+  const times = rows.map((r) => r.bookingDate.getTime());
+  const existing = await prisma.transaction.findMany({
+    where: { bankAccountId, bookingDate: { gte: new Date(Math.min(...times)), lte: new Date(Math.max(...times)) } },
+    select: { bookingDate: true, amount: true, variableSymbol: true, dedupHash: true },
+  });
+  return filterOverlaps(existing.map((e) => ({ ...e, amount: Number(e.amount) })), rows);
+}
+
+export function filterOverlaps<T extends Row>(existing: Row[], rows: T[]): T[] {
+  const hashes = new Set(existing.map((e) => e.dedupHash));
+  const pool = existing.map((e) => ({ key: `${e.bookingDate.toISOString().slice(0, 10)}|${e.amount.toFixed(2)}`, vs: e.variableSymbol, used: false }));
+  return rows.filter((r) => {
+    if (hashes.has(r.dedupHash)) return false; // точний дубль — відсіє і skipDuplicates
+    const key = `${r.bookingDate.toISOString().slice(0, 10)}|${r.amount.toFixed(2)}`;
+    const hit = pool.find((p) => !p.used && p.key === key && (!p.vs || !r.variableSymbol || p.vs === r.variableSymbol));
+    if (!hit) return true;
+    hit.used = true;
+    return false;
+  });
 }

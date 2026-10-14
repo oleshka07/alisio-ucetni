@@ -248,7 +248,7 @@ export function BankAccountsPanel({ clients, accounts, isOwner }: { clients: Cli
             )}
             <details className="mt-2">
               <summary className="text-xs text-muted-foreground cursor-pointer inline-flex items-center gap-1"><Upload className="w-3 h-3" /> Nahrát výpis ručně (CAMT.053 XML nebo PDF KB)</summary>
-              <div className="mt-2"><FileDrop url={`/api/bank-accounts/${a.id}/upload`} compact accept=".xml,.pdf" label="Soubor výpisu .xml / .pdf" /></div>
+              <div className="mt-2"><FileDrop url={`/api/bank-accounts/${a.id}/upload`} compact accept=".xml,.pdf,.csv" label="Soubor výpisu .pdf / .csv / .xml" /></div>
             </details>
           </div>
         ))}

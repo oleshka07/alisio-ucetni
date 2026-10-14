@@ -17,7 +17,10 @@ type Props = {
   compact?: boolean;
 };
 
-type Result = { name?: string; duplicate?: boolean; autoLinked?: boolean; linkedTo?: string[]; candidates?: number };
+type Result = {
+  name?: string; duplicate?: boolean; autoLinked?: boolean; linkedTo?: string[]; candidates?: number;
+  fileName?: string; ok?: boolean; account?: string; imported?: number; total?: number; createdAccount?: string;
+};
 
 export default function FileDrop({ url, label = "Přetáhněte soubory sem nebo klikněte", withDocType, defaultDocType = "", extra, accept, compact }: Props) {
   const router = useRouter();
@@ -42,7 +45,10 @@ export default function FileDrop({ url, label = "Přetáhněte soubory sem nebo 
       const dup = results.filter((r) => r.duplicate).length;
       const auto = results.filter((r) => r.autoLinked).length;
       if (data.imported !== undefined) {
-        toast.success(`Importováno ${data.imported} z ${data.total} plateb`);
+        const lines = results
+          .filter((r) => r.ok && r.account)
+          .map((r) => `${r.fileName} → ${r.account}: ${r.duplicate ? "už v systému" : `${r.imported} nových z ${r.total}`}${r.createdAccount ? " (nový účet)" : ""}`);
+        toast.success(`Importováno ${data.imported} z ${data.total} plateb`, { description: lines.join("\n") || undefined, duration: 8000 });
         for (const err of (data.errors as string[] | undefined) || []) toast.error(err, { duration: 10000 });
       } else toast.success(`Nahráno ${results.length}${auto ? ` · automaticky přiřazeno ${auto}` : ""}${dup ? ` · ${dup} už v systému byl(o)` : ""}`);
       router.refresh();
