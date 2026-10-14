@@ -2,11 +2,10 @@ import type { BankAccount } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { decryptSecret, sha256Hex } from "@/lib/crypto";
 import { fetchNewMail } from "@/lib/mail/imap";
-import { parseCamt053, looksLikeCamt } from "./camt";
-import { pdfItems, looksLikeKbPdf, parseKbStatementItems } from "./kb-pdf";
+import { parseStatementFile, SUPPORTED_FORMATS } from "./detect";
 import type { ParsedStatement } from "./types";
 import { fetchFioPeriod } from "./fio";
-import { importStatement, resolveAccountForStatement, sameAccount, findAccountForStatement } from "./import";
+import { importStatement, resolveAccountForStatement, sameAccount, findOrCreateAccountForStatement } from "./import";
 import { putFile, extFromName } from "@/lib/storage";
 import { matchTaxPayments } from "@/lib/tax/sync";
 import { matchUnassignedDocuments } from "@/lib/docs/ingest";
@@ -119,30 +118,14 @@ export async function syncAllBankAccounts(): Promise<SyncReport[]> {
 /** Оригінал виписки в сховище; ключ за хешем — той самий файл зберігається один раз. */
 export async function storeStatementFile(name: string, content: Buffer): Promise<string> {
   const ext = extFromName(name) || (content.subarray(0, 5).toString("latin1") === "%PDF-" ? ".pdf" : ".xml");
-  const type = ext === ".pdf" ? "application/pdf" : "application/xml";
+  const type = ext === ".pdf" ? "application/pdf" : ext === ".csv" ? "text/csv" : "application/xml";
   return putFile(`statements/${sha256Hex(content).slice(0, 40)}${ext}`, content, type);
-}
-
-/**
- * Розпізнає файл виписки: CAMT.053 XML або PDF-виписка KB.
- * null — файл не схожий на виписку (звичайне вкладення); помилка — схожий, але не розібрався.
- */
-export async function parseStatementFile(name: string, contentType: string, content: Buffer): Promise<ParsedStatement[] | null> {
-  const isPdf = content.subarray(0, 5).toString("latin1") === "%PDF-";
-  if (isPdf) {
-    const items = await pdfItems(content);
-    return looksLikeKbPdf(items) ? [parseKbStatementItems(items)] : null;
-  }
-  const isXml = /xml/i.test(contentType) || /\.xml$/i.test(name) || content.subarray(0, 100).toString("utf8").includes("<?xml");
-  if (!isXml) return null;
-  const text = content.toString("utf8");
-  return looksLikeCamt(text) ? parseCamt053(text) : null;
 }
 
 /** Ручне завантаження файлу виписки (CAMT.053 XML або PDF KB). */
 export async function importUploadedStatement(account: BankAccount, fileName: string, content: Buffer) {
   const statements = await parseStatementFile(fileName, "", content);
-  if (!statements) throw new Error("Soubor není výpis CAMT.053 (XML) ani PDF výpis Komerční banky");
+  if (!statements) throw new Error(`Soubor není podporovaný výpis (${SUPPORTED_FORMATS})`);
   for (const st of statements) {
     if (!sameAccount(account, st)) {
       throw new Error(`Výpis patří k účtu ${st.accountNumber || st.iban} (${st.currency}), ne k účtu „${account.name}“`);
@@ -172,6 +155,7 @@ export interface FileImportResult {
   imported: number;
   total: number;
   duplicate?: boolean;
+  createdAccount?: string;
   error?: string;
 }
 
@@ -186,14 +170,13 @@ export async function importStatementFiles(files: Array<{ name: string; content:
     const res: FileImportResult = { fileName: f.name, ok: false, imported: 0, total: 0 };
     try {
       const statements = await parseStatementFile(f.name, "", f.content);
-      if (!statements) throw new Error("Není to výpis CAMT.053 (XML) ani PDF výpis Komerční banky");
+      if (!statements) throw new Error(`Není to podporovaný výpis (${SUPPORTED_FORMATS})`);
       let fileUrl: string | undefined;
       let dup = true;
       for (const [i, st] of statements.entries()) {
-        const account = await findAccountForStatement(st);
-        if (!account) {
-          throw new Error(`Účet ${st.accountNumber || st.iban} (${st.currency}) není v Nastavení → Bankovní účty`);
-        }
+        const { account, created, reason } = await findOrCreateAccountForStatement(st);
+        if (!account) throw new Error(reason);
+        if (created) res.createdAccount = `${account.name} (${st.accountName})`;
         fileUrl ??= await storeStatementFile(f.name, f.content);
         const r = await importStatement(account, st, {
           source: "upload",

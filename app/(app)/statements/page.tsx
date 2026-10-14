@@ -34,7 +34,7 @@ export default async function StatementsPage({ searchParams }: { searchParams: P
         </p>
       </div>
 
-      <FileDrop url="/api/statements/upload" compact accept=".xml,.pdf" label="Nahrát výpisy — CAMT.053 XML nebo PDF Komerční banky (lze víc souborů najednou)" />
+      <FileDrop url="/api/statements/upload" compact accept=".xml,.pdf,.csv" label="Nahrát výpisy — PDF (KB, Česká spořitelna), CSV z MojeBanky nebo CAMT.053 XML. Účet a firma se poznají z výpisu, lze víc souborů najednou" />
 
       {problems.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 space-y-1">

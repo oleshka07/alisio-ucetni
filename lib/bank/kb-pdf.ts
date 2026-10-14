@@ -1,5 +1,4 @@
 import type { ParsedStatement, ParsedTransaction } from "./types";
-import { looksLikeCamt } from "./camt";
 
 /**
  * Парсер PDF-виписки Komerční banka («VÝPIS PERIODICKÝ»).
@@ -36,7 +35,7 @@ export async function pdfItems(buf: Buffer | Uint8Array): Promise<PdfItem[]> {
   return out;
 }
 
-interface Line {
+export interface Line {
   page: number;
   y: number;
   items: PdfItem[];
@@ -261,21 +260,9 @@ export function parseKbStatementItems(items: PdfItem[]): ParsedStatement {
     }
   }
 
-  return { iban, accountNumber, currency, openingBalance, closingBalance, periodFrom, periodTo, transactions };
+  return { iban, accountNumber, currency, openingBalance, closingBalance, periodFrom, periodTo, transactions, bank: "Komerční banka" };
 }
 
 export async function parseKbPdf(buf: Buffer | Uint8Array): Promise<ParsedStatement> {
   return parseKbStatementItems(await pdfItems(buf));
-}
-
-/** Вкладення — банківська виписка (PDF KB або CAMT.053)? Такі не є документами до платежів. */
-export async function isBankStatementFile(content: Buffer): Promise<boolean> {
-  if (content.subarray(0, 5).toString("latin1") === "%PDF-") {
-    try {
-      return looksLikeKbPdf(await pdfItems(content));
-    } catch {
-      return false;
-    }
-  }
-  return looksLikeCamt(content.subarray(0, 5000).toString("utf8"));
 }
