@@ -1,11 +1,9 @@
 import type { BankAccount } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { decryptSecret, sha256Hex } from "@/lib/crypto";
-import { fetchNewMail } from "@/lib/mail/imap";
 import { parseStatementFile, SUPPORTED_FORMATS } from "./detect";
-import type { ParsedStatement } from "./types";
 import { fetchFioPeriod } from "./fio";
-import { importStatement, resolveAccountForStatement, sameAccount, findOrCreateAccountForStatement, ownerMismatch } from "./import";
+import { importStatement, sameAccount, findOrCreateAccountForStatement, ownerMismatch } from "./import";
 import { putFile, extFromName } from "@/lib/storage";
 import { matchTaxPayments } from "@/lib/tax/sync";
 import { matchUnassignedDocuments } from "@/lib/docs/ingest";
@@ -23,56 +21,6 @@ export interface SyncReport {
   error?: string;
 }
 
-async function syncImap(account: BankAccount, report: SyncReport) {
-  if (!account.imapHost || !account.imapUser || !account.imapPasswordEnc) {
-    throw new Error("IMAP není nastaven");
-  }
-  const res = await fetchNewMail({
-    host: account.imapHost,
-    port: account.imapPort || 993,
-    user: account.imapUser,
-    password: decryptSecret(account.imapPasswordEnc),
-    folder: account.imapFolder || "INBOX",
-    senderFilter: account.senderFilter,
-    lastUid: account.lastUid,
-  });
-
-  for (const mail of res.mails) {
-    for (const att of mail.attachments) {
-      const name = att.filename || "statement";
-      let statements: ParsedStatement[];
-      try {
-        const parsed = await parseStatementFile(name, att.contentType || "", att.content);
-        if (!parsed) continue;
-        statements = parsed;
-      } catch (e) {
-        report.notes.push(`Výpis ${name}: ${e instanceof Error ? e.message : String(e)}`);
-        continue;
-      }
-      let fileUrl: string | undefined;
-      for (const [i, st] of statements.entries()) {
-        const { account: target, reason } = await resolveAccountForStatement(account, st);
-        if (!target) {
-          report.notes.push(`Výpis ${name}: ${reason}`);
-          continue;
-        }
-        fileUrl ??= await storeStatementFile(name, att.content);
-        const r = await importStatement(target, st, {
-          source: "imap",
-          externalId: `imap:${account.id}:${mail.uid}:${name}:${i}`,
-          fileName: name,
-          fileUrl,
-        });
-        if (!r.skippedDuplicate) {
-          report.statements++;
-          report.imported += r.imported;
-        }
-      }
-    }
-  }
-  await prisma.bankAccount.update({ where: { id: account.id }, data: { lastUid: res.maxUid } });
-}
-
 async function syncFio(account: BankAccount, report: SyncReport) {
   if (!account.fioTokenEnc) throw new Error("Fio token není nastaven");
   const to = new Date();
@@ -88,9 +36,9 @@ async function syncFio(account: BankAccount, report: SyncReport) {
 export async function syncBankAccount(account: BankAccount): Promise<SyncReport> {
   const report: SyncReport = { accountId: account.id, name: account.name, ok: true, statements: 0, imported: 0, notes: [] };
   try {
+    // Výpisy z e-mailu čte Nastavení → Pošta (lib/docs/inbox-sync.ts) a sama je rozdělí do účtů.
     if (account.source === "fio_api") await syncFio(account, report);
-    else if (account.source === "imap_camt") await syncImap(account, report);
-    else report.notes.push("Ruční import — synchronizace se nespouští");
+    else report.notes.push("Výpisy chodí z pošty (Nastavení → Pošta) nebo ručním nahráním");
     if (report.imported > 0) report.matchedDocuments = await afterImport(account.clientId);
     const failCount = await reportSyncHealth({ kind: "bank", refId: account.id, name: account.name, prevFailCount: account.failCount, notes: report.notes });
     await prisma.bankAccount.update({
@@ -108,7 +56,7 @@ export async function syncBankAccount(account: BankAccount): Promise<SyncReport>
 
 export async function syncAllBankAccounts(): Promise<SyncReport[]> {
   const accounts = await prisma.bankAccount.findMany({
-    where: { isActive: true, source: { in: ["imap_camt", "fio_api"] } },
+    where: { isActive: true, source: "fio_api" },
   });
   const out: SyncReport[] = [];
   for (const a of accounts) out.push(await syncBankAccount(a)); // послідовно: ліміти Fio / IMAP

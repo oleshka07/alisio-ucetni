@@ -7,6 +7,7 @@ import { ingestReply, notifyOwners, reportSyncHealth } from "@/lib/telegram/noti
 import { isDataBoxNotification } from "@/lib/databox/notification";
 import { handleDataBoxMail } from "@/lib/databox/handle";
 import { isBankStatementFile } from "@/lib/bank/detect";
+import { importStatementFiles } from "@/lib/bank/sync";
 
 /** Лист схожий на фактуру/чек (тема або назва файлу). */
 export const INVOICE_WORDS = /faktur|invoice|da[ňn]ov[ýy][\s_-]*doklad|[úu][čc]tenk|receipt|rechnung|vy[úu][čc]tov[áa]n|z[áa]lohov|proforma|billing|payment|platb|рахун|інвойс|инвойс|\.isdoc/i;
@@ -20,20 +21,22 @@ function looksLikeInvoiceMail(subject: string, text: string, names: string[]): b
  *  documents — усі вкладення (окрема скринька doklady@…)
  *  databox   — лише сповіщення ISDS
  *  mixed     — основна пошта: ISDS + вкладення, схожі на фактуру; AI перевіряє, решта ігнорується
+ * У всіх режимах, крім databox, банківські виписки з вкладень імпортуються самі:
+ * рахунок і фірму система визначає з виписки (lib/bank/import.ts → findOrCreateAccountForStatement).
  *
  * Скринька для документів: пересилаєте фактуру на doklady@… — вкладення
  * розпізнаються й чіпляються до платежів. Логіка — з receipt-inbox-engine ALiSiO PMS.
  */
 
-const ALLOWED = [/^application\/pdf$/, /^image\/(jpeg|png|heic|heif|webp)$/, /xml$/, /spreadsheetml|ms-excel/, /^application\/octet-stream$/];
+const ALLOWED = [/^application\/pdf$/, /^image\/(jpeg|png|heic|heif|webp)$/, /xml$/, /csv/, /spreadsheetml|ms-excel/, /^application\/octet-stream$/];
 
 function isUseful(att: { contentType?: string; filename?: string; size?: number; contentDisposition?: string; related?: boolean }): boolean {
   const ct = (att.contentType || "").toLowerCase();
   const name = (att.filename || "").toLowerCase();
   if (att.related) return false; // вбудовані картинки підпису
   if (ct.startsWith("image/") && (att.size || 0) < 25_000) return false; // логотипи
-  if (ct === "application/octet-stream" && !/\.(pdf|xml|isdoc|jpg|jpeg|png)$/.test(name)) return false;
-  return ALLOWED.some((r) => r.test(ct)) || /\.(pdf|isdoc|xml)$/.test(name);
+  if (ct === "application/octet-stream" && !/\.(pdf|xml|isdoc|csv|jpg|jpeg|png)$/.test(name)) return false;
+  return ALLOWED.some((r) => r.test(ct)) || /\.(pdf|isdoc|xml|csv)$/.test(name);
 }
 
 export interface InboxReport {
@@ -43,11 +46,13 @@ export interface InboxReport {
   documents: number;
   autoLinked: number;
   databox: number;
+  statements: number;
+  notes: string[];
   error?: string;
 }
 
 export async function syncDocumentInbox(inbox: DocumentInbox): Promise<InboxReport> {
-  const report: InboxReport = { inboxId: inbox.id, name: inbox.name, ok: true, documents: 0, autoLinked: 0, databox: 0 };
+  const report: InboxReport = { inboxId: inbox.id, name: inbox.name, ok: true, documents: 0, autoLinked: 0, databox: 0, statements: 0, notes: [] };
   try {
     const res = await fetchNewMail(
       {
@@ -65,8 +70,8 @@ export async function syncDocumentInbox(inbox: DocumentInbox): Promise<InboxRepo
         firstSyncDays: inbox.kind === "databox" ? 14 : 7,
         // відправник ISDS може відрізнятися — ловимо й за темою листа
         subjectMatch:
-          inbox.kind === "databox" ? /datov|schr[áa]nk|ISDS/i : inbox.kind === "mixed" ? new RegExp(`datov|schr[áa]nk|ISDS|${INVOICE_WORDS.source}`, "i") : undefined,
-        attachmentMatch: inbox.kind === "mixed" ? /\.(pdf|isdoc|isdocx)$/i : undefined,
+          inbox.kind === "databox" ? /datov|schr[áa]nk|ISDS/i : inbox.kind === "mixed" ? new RegExp(`datov|schr[áa]nk|ISDS|v[ýy]pis|statement|${INVOICE_WORDS.source}`, "i") : undefined,
+        attachmentMatch: inbox.kind === "mixed" ? /\.(pdf|isdoc|isdocx|xml|csv)$/i : undefined,
       }
     );
 
@@ -78,13 +83,25 @@ export async function syncDocumentInbox(inbox: DocumentInbox): Promise<InboxRepo
       if (inbox.kind === "databox") continue;
       const mixed = inbox.kind === "mixed";
       let atts = mail.attachments.filter(isUseful);
+      // 1) банківські виписки — у потрібний рахунок потрібної фірми
+      const rest: typeof atts = [];
+      for (const att of atts) {
+        const name = att.filename || "vypis";
+        if (!(await isBankStatementFile(att.content, name))) {
+          rest.push(att);
+          continue;
+        }
+        const [r] = await importStatementFiles([{ name, content: att.content }]);
+        if (r.ok) report.statements += r.imported;
+        else report.notes.push(`Výpis ${name}: ${r.error}`);
+      }
+      atts = rest;
       if (mixed) {
         // з основної пошти беремо лише PDF/ISDOC і лише з листів, схожих на фактуру
         atts = atts.filter((a) => /pdf|xml|isdoc/i.test(a.contentType || "") || /\.(pdf|isdocx?)$/i.test(a.filename || ""));
         if (!atts.length || !looksLikeInvoiceMail(mail.subject, mail.text, atts.map((a) => a.filename || ""))) continue;
       }
       for (const att of atts) {
-        if (await isBankStatementFile(att.content, att.filename || "")) continue; // виписки забирає синхронізація рахунку
         const outcome = await ingestDocument({
           requireFinancial: mixed as true,
           buffer: att.content,
@@ -107,10 +124,10 @@ export async function syncDocumentInbox(inbox: DocumentInbox): Promise<InboxRepo
         }
       }
     }
-    const failCount = await reportSyncHealth({ kind: "inbox", refId: inbox.id, name: inbox.name, prevFailCount: inbox.failCount });
+    const failCount = await reportSyncHealth({ kind: "inbox", refId: inbox.id, name: inbox.name, prevFailCount: inbox.failCount, notes: report.notes });
     await prisma.documentInbox.update({
       where: { id: inbox.id },
-      data: { lastUid: res.maxUid, lastSyncAt: new Date(), lastError: null, failCount },
+      data: { lastUid: res.maxUid, lastSyncAt: new Date(), lastError: report.notes.length ? report.notes.join("; ").slice(0, 500) : null, failCount },
     });
   } catch (e) {
     report.ok = false;

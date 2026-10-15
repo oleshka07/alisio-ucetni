@@ -5,6 +5,7 @@ import { ingestDocument, linkDocument } from "@/lib/docs/ingest";
 import { importStatementFiles } from "@/lib/bank/sync";
 import { isBankStatementFile } from "@/lib/bank/detect";
 import { searchMail } from "@/lib/mail/imap";
+import { reapplyRules } from "@/lib/docs/rules";
 
 /**
  * Nástroje MCP konektoru: AI (Claude) pracuje s evidencí jménem uživatele tokenu.
@@ -316,6 +317,16 @@ export const TOOLS: Tool[] = [
         }
       }
       return { found: out.length, mails: out };
+    },
+  },
+  {
+    name: "reapply_rules",
+    description: "Znovu použije pravidla „jaký doklad je potřeba“ na všechny platby (kromě ručně nastavených) — po změně pravidel.",
+    inputSchema: { type: "object", properties: {} },
+    annotations: { idempotentHint: true },
+    run: async (_a, user) => {
+      if (user.role !== "owner") throw new ToolError("Jen majitel");
+      return reapplyRules();
     },
   },
   {

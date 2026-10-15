@@ -19,7 +19,8 @@ export function accountData(body: Record<string, unknown>) {
   if (typeof body.isActive === "boolean") data.isActive = body.isActive;
   if (typeof body.imapPassword === "string" && body.imapPassword) data.imapPasswordEnc = encryptSecret(body.imapPassword);
   if (typeof body.fioToken === "string" && body.fioToken) data.fioTokenEnc = encryptSecret(body.fioToken.trim());
-  if (data.source && !["imap_camt", "fio_api", "manual"].includes(String(data.source))) throw new HttpError(400, "Neplatný zdroj");
+  if (data.source === "imap_camt") data.source = "manual"; // e-mail je teď v Nastavení → Pošta
+  if (data.source && !["fio_api", "manual"].includes(String(data.source))) throw new HttpError(400, "Neplatný zdroj");
   return data;
 }
 
