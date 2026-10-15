@@ -5,6 +5,7 @@ import { syncAllBankAccounts } from "@/lib/bank/sync";
 import { syncAllDocumentInboxes } from "@/lib/docs/inbox-sync";
 import { sendDigest, sendUrgentReminders, sendTaxReminders } from "@/lib/telegram/notify";
 import { syncTaxCalendar } from "@/lib/tax/sync";
+import { reapplyRules } from "@/lib/docs/rules";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -16,6 +17,7 @@ export const maxDuration = 60;
  *   /api/cron/digest  — нагадування в Telegram (пн, чт)
  *   /api/cron/reminders — щодня: дедлайни ≤ 2 дні (фікція доручення) + податкові строки (7 / 2 / 0 днів, прострочені)
  *   /api/cron/tax-calendar — щодня: згенерувати податкові строки на 4 місяці, зіставити платежі
+ *   /api/cron/rules — разово після зміни системних правил: перерахувати, які документи потрібні
  */
 async function run(job: string, force: boolean) {
   switch (job) {
@@ -31,6 +33,8 @@ async function run(job: string, force: boolean) {
       return { reminders: await sendUrgentReminders(), tax: await sendTaxReminders() };
     case "tax-calendar":
       return { taxCalendar: await syncTaxCalendar() };
+    case "rules":
+      return { rules: await reapplyRules() };
     default:
       return null;
   }

@@ -25,7 +25,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       "Content-Disposition": `${download ? "attachment" : "inline"}; filename*=UTF-8''${name}`,
       "Cache-Control": "private, max-age=300",
       "X-Content-Type-Options": "nosniff",
-      "Content-Security-Policy": "sandbox; default-src 'none'; img-src 'self'; style-src 'unsafe-inline'",
+      // ?view=1 — náhled v rámečku (Kontrola měsíce): PDF prohlížeč v prohlížeči nefunguje pod CSP sandbox; jen pro bezpečné typy
+      ...(new URL(req.url).searchParams.has("view") && safeInline && !download ? {} : { "Content-Security-Policy": "sandbox; default-src 'none'; img-src 'self'; style-src 'unsafe-inline'" }),
     },
   });
 }
