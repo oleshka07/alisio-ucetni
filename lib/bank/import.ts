@@ -115,18 +115,6 @@ export function sameAccount(acc: Pick<BankAccount, "accountNumber" | "iban">, st
   return mine.some((m) => theirs.includes(m));
 }
 
-/**
- * Скринька може отримувати виписки кількох рахунків. Шукаємо рахунок, до якого
- * належить виписка: спершу «свій», потім будь-який інший активний.
- */
-export async function resolveAccountForStatement(preferred: BankAccount, st: ParsedStatement): Promise<AccountResolution> {
-  if (sameAccount(preferred, st)) {
-    const bad = await ownerMismatch(preferred, st);
-    return bad ? { account: null, reason: bad } : { account: preferred };
-  }
-  return findOrCreateAccountForStatement(st);
-}
-
 export interface ImportResult {
   statementId: string | null;
   total: number;

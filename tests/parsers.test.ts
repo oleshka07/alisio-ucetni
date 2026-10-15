@@ -105,3 +105,19 @@ test("requirementCoverage mirrors computeDocStatus", () => {
   assert.deepEqual(requirementCoverage(["invoice_in", "cmr"], ["cmr"]), [false, true]);
   assert.deepEqual(requirementCoverage(["invoice_in", "cmr"], ["contract"]), [true, false]);
 });
+
+test("rules: bankovní bonus, poplatek ČS, bankomat → doklad není potřeba", () => {
+  const pick = (amount: number, message: string, counterpartyName: string | null = null) =>
+    pickRule(rules, { clientId: "c1", amount, message, counterpartyName });
+  assert.equal(pick(99, "Příchozí úhrada | BONUS ZA VEDENÍ ÚČTU/BALÍČKU | Bonus 100.00%", "MOJE ODMĚNY").notNeeded, true);
+  assert.equal(pick(-0.29, "Ceny za služby | Cena za příchozí úhradu | v EUR v rámci EHP").category, "fee");
+  assert.equal(pick(-3.07, "Ceny za služby | Cena za vedení účtu").notNeeded, true);
+  const atm = pick(-44000, "Výběr hotovosti z ATM | KB ATM Dragounska");
+  assert.equal(atm.category, "cash");
+  assert.equal(atm.notNeeded, true);
+  assert.equal(pick(1200, "Vklad přes ATM | PLATEBNÍ KARTY").category, "cash");
+  assert.equal(pick(-10000, "Výběr hotovosti z bankomatu ČS").category, "cash");
+  // běžná příchozí platba zůstává „chce fakturu“
+  assert.equal(pick(5000, "Příchozí úhrada", "Mariana Bihun").notNeeded, false);
+  assert.equal(pick(-400, "Platba kartou | CZ Karlovy Vary").notNeeded, false);
+});

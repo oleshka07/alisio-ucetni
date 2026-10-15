@@ -118,10 +118,7 @@ type Account = {
   senderFilter: string | null; lastSyncAt: string | null; lastError: string | null; hasPassword: boolean; hasToken: boolean;
 };
 
-const EMPTY_ACCOUNT = {
-  clientId: "", name: "", accountNumber: "", iban: "", currency: "CZK", source: "manual",
-  imapHost: "", imapPort: "993", imapUser: "", imapPassword: "", imapFolder: "INBOX", senderFilter: "", fioToken: "",
-};
+const EMPTY_ACCOUNT = { clientId: "", name: "", accountNumber: "", iban: "", currency: "CZK", source: "manual", fioToken: "" };
 
 function AccountForm({ clients, initial, id, onDone }: { clients: Client[]; initial?: Partial<typeof EMPTY_ACCOUNT>; id?: string; onDone: () => void }) {
   const router = useRouter();
@@ -155,23 +152,12 @@ function AccountForm({ clients, initial, id, onDone }: { clients: Client[]; init
       <Field l="Číslo účtu (123456789/0100)"><input value={v.accountNumber} onChange={set("accountNumber")} className={input} /></Field>
       <Field l="IBAN"><input value={v.iban} onChange={set("iban")} className={input} /></Field>
       <Field l="Zdroj výpisů">
-        <select value={v.source} onChange={set("source")} className={input}>
-          <option value="imap_camt">E-mail (výpisy PDF / CSV / CAMT.053 XML)</option>
+        <select value={v.source === "fio_api" ? "fio_api" : "manual"} onChange={set("source")} className={input}>
+          <option value="manual">Z pošty (Nastavení → Pošta) nebo ruční nahrání</option>
           <option value="fio_api">Fio API (token)</option>
-          <option value="manual">Jen ruční nahrání</option>
         </select>
       </Field>
       <Field l="Měna"><input value={v.currency} onChange={set("currency")} className={input} /></Field>
-      {v.source === "imap_camt" && (
-        <>
-          <Field l="IMAP server (např. imap.gmail.com)"><input value={v.imapHost} onChange={set("imapHost")} className={input} /></Field>
-          <Field l="Port"><input value={v.imapPort} onChange={set("imapPort")} className={input} /></Field>
-          <Field l="Uživatel (vypisy@swipescape.eu)"><input value={v.imapUser} onChange={set("imapUser")} className={input} autoComplete="off" /></Field>
-          <Field l={id ? "Heslo (prázdné = beze změny)" : "Heslo / heslo aplikace"}><input type="password" value={v.imapPassword} onChange={set("imapPassword")} className={input} autoComplete="new-password" /></Field>
-          <Field l="Složka"><input value={v.imapFolder} onChange={set("imapFolder")} className={input} /></Field>
-          <Field l="Odesílatel obsahuje (volitelné, např. kb.cz|csas.cz)"><input value={v.senderFilter} onChange={set("senderFilter")} className={input} /></Field>
-        </>
-      )}
       {v.source === "fio_api" && (
         <Field l={id ? "Fio token (prázdné = beze změny)" : "Fio token (jen pro čtení)"}><input type="password" value={v.fioToken} onChange={set("fioToken")} className={input} autoComplete="new-password" /></Field>
       )}
@@ -189,7 +175,7 @@ export function BankAccountsPanel({ clients, accounts, isOwner }: { clients: Cli
   return (
     <Section
       title="Bankovní účty"
-      desc="Výpisy chodí e-mailem (CAMT.053) nebo přes Fio API. Každá platba se objeví v „Platby a doklady“."
+      desc="Účty firem. Výpisy sem chodí samy z pošty (Nastavení → Pošta) — účet a firma se poznají z výpisu; nebo přes Fio API či ručním nahráním."
       action={isOwner && !adding ? (
         <button onClick={() => setAdding(true)} className="inline-flex items-center gap-1 text-sm text-primary whitespace-nowrap shrink-0"><Plus className="w-4 h-4" /> Přidat účet</button>
       ) : undefined}
@@ -203,13 +189,13 @@ export function BankAccountsPanel({ clients, accounts, isOwner }: { clients: Cli
               <div>
                 <p className="font-medium">{a.name} <span className="text-xs text-muted-foreground">{a.accountNumber || a.iban || ""}</span></p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {a.source === "imap_camt" ? `E-mail ${a.imapUser || "—"} / ${a.imapFolder}` : a.source === "fio_api" ? "Fio API" : "Ruční import"}
+                  {a.source === "fio_api" ? "Fio API" : "Z pošty / ruční nahrání"}
                   {" · "}poslední synchronizace: {when(a.lastSyncAt)}
                 </p>
                 {a.lastError && <p className="text-xs text-red-600 mt-1">{a.lastError}</p>}
               </div>
               <div className="flex flex-wrap gap-2">
-                {a.source !== "manual" && (
+                {a.source === "fio_api" && (
                   <ActionButton url={`/api/bank-accounts/${a.id}/sync`} className="text-xs px-2 py-1" onDone={(d) => {
                     const r = d as { ok: boolean; imported: number; error?: string; matchedDocuments?: number };
                     if (r.ok) toast.success(`Nových plateb: ${r.imported}${r.matchedDocuments ? ` · přiřazeno dokladů: ${r.matchedDocuments}` : ""}`);
@@ -217,13 +203,6 @@ export function BankAccountsPanel({ clients, accounts, isOwner }: { clients: Cli
                   }}>
                     <RefreshCw className="w-3.5 h-3.5" /> Načíst
                   </ActionButton>
-                )}
-                {isOwner && a.source === "imap_camt" && (
-                  <ActionButton url={`/api/bank-accounts/${a.id}/test`} className="text-xs px-2 py-1" onDone={(d) => {
-                    const r = d as { ok: boolean; messages?: number; error?: string };
-                    if (r.ok) toast.success(`Připojení OK · zpráv ve složce: ${r.messages}`);
-                    else toast.error(r.error || "Nepodařilo se připojit");
-                  }}>Test</ActionButton>
                 )}
                 {isOwner && (
                   <button onClick={() => setEditing(editing === a.id ? null : a.id)} className="text-xs px-2 py-1 rounded-md border border-border hover:bg-accent">Upravit</button>
@@ -242,15 +221,14 @@ export function BankAccountsPanel({ clients, accounts, isOwner }: { clients: Cli
                   id={a.id}
                   initial={{
                     clientId: a.clientId, name: a.name, accountNumber: a.accountNumber || "", iban: a.iban || "", currency: a.currency,
-                    source: a.source, imapHost: a.imapHost || "", imapPort: String(a.imapPort || 993), imapUser: a.imapUser || "",
-                    imapFolder: a.imapFolder || "INBOX", senderFilter: a.senderFilter || "",
+                    source: a.source,
                   }}
                   onDone={() => setEditing(null)}
                 />
               </div>
             )}
             <details className="mt-2">
-              <summary className="text-xs text-muted-foreground cursor-pointer inline-flex items-center gap-1"><Upload className="w-3 h-3" /> Nahrát výpis ručně (CAMT.053 XML nebo PDF KB)</summary>
+              <summary className="text-xs text-muted-foreground cursor-pointer inline-flex items-center gap-1"><Upload className="w-3 h-3" /> Nahrát výpis ručně (PDF, CSV, XML)</summary>
               <div className="mt-2"><FileDrop url={`/api/bank-accounts/${a.id}/upload`} compact accept=".xml,.pdf,.csv" label="Soubor výpisu .pdf / .csv / .xml" /></div>
             </details>
           </div>
@@ -268,10 +246,17 @@ type Inbox = {
 };
 
 const KIND: Record<string, string> = {
-  mixed: "Hlavní pošta: datové schránky + faktury",
-  documents: "Jen doklady (všechny přílohy)",
+  mixed: "Běžná pošta: faktury, výpisy, datové schránky (ostatní e-maily se ignorují)",
+  documents: "Schránka jen na doklady a výpisy (bere všechny přílohy)",
   databox: "Jen oznámení datových schránek",
 };
+
+const IMAP_PRESETS: Array<[string, string]> = [
+  ["Gmail / Google Workspace", "imap.gmail.com"],
+  ["Seznam / Email.cz", "imap.seznam.cz"],
+  ["Centrum.cz", "imap.centrum.cz"],
+  ["Outlook / Microsoft 365", "outlook.office365.com"],
+];
 
 export function InboxesPanel({ clients, inboxes, isOwner }: { clients: Client[]; inboxes: Inbox[]; isOwner: boolean }) {
   const router = useRouter();
@@ -297,8 +282,8 @@ export function InboxesPanel({ clients, inboxes, isOwner }: { clients: Client[];
 
   return (
     <Section
-      title="E-mailové schránky"
-      desc="Hlavní pošta: oznámení z datových schránek → úkoly s termínem; faktury v přílohách → automaticky k platbám. Ostatní e-maily se nečtou."
+      title="Pošta"
+      desc="Odkud se berou faktury i bankovní výpisy — schránek může být víc (Gmail, Seznam…). Výpis se sám zařadí k účtu a firmě podle čísla účtu, faktura k platbě; oznámení datových schránek → úkoly s termínem."
       action={isOwner && !adding ? (
         <button onClick={() => setAdding(true)} className="inline-flex items-center gap-1 text-sm text-primary whitespace-nowrap shrink-0"><Plus className="w-4 h-4" /> Přidat schránku</button>
       ) : undefined}
@@ -317,7 +302,16 @@ export function InboxesPanel({ clients, inboxes, isOwner }: { clients: Client[];
               {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </Field>
-          <Field l="IMAP server"><input value={v.imapHost} onChange={set("imapHost")} className={input} required /></Field>
+          <Field l="IMAP server">
+            <input value={v.imapHost} onChange={set("imapHost")} className={input} required />
+            <span className="flex flex-wrap gap-1 mt-1">
+              {IMAP_PRESETS.map(([label, host]) => (
+                <button key={host} type="button" onClick={() => setV((p) => ({ ...p, imapHost: host, imapPort: "993" }))} className="text-[11px] px-1.5 py-0.5 rounded border border-border hover:bg-accent">
+                  {label}
+                </button>
+              ))}
+            </span>
+          </Field>
           <Field l="Port"><input value={v.imapPort} onChange={set("imapPort")} className={input} /></Field>
           <Field l="Uživatel"><input value={v.imapUser} onChange={set("imapUser")} className={input} required autoComplete="off" /></Field>
           <Field l="Heslo / heslo aplikace"><input type="password" value={v.imapPassword} onChange={set("imapPassword")} className={input} required autoComplete="new-password" /></Field>
@@ -339,9 +333,10 @@ export function InboxesPanel({ clients, inboxes, isOwner }: { clients: Client[];
             </div>
             <div className="flex gap-2">
               <ActionButton url={`/api/doc-inboxes/${i.id}/sync`} className="text-xs px-2 py-1" onDone={(d) => {
-                const r = d as { ok: boolean; documents: number; autoLinked: number; databox: number; error?: string };
-                if (r.ok) toast.success(`Doklady: ${r.documents} (přiřazeno ${r.autoLinked}) · datové schránky: ${r.databox}`);
+                const r = d as { ok: boolean; documents: number; autoLinked: number; databox: number; statements?: number; notes?: string[]; error?: string };
+                if (r.ok) toast.success(`Doklady: ${r.documents} (přiřazeno ${r.autoLinked}) · plateb z výpisů: ${r.statements ?? 0} · datové schránky: ${r.databox}`);
                 else toast.error(r.error || "Chyba");
+                for (const n of r.notes || []) toast.error(n, { duration: 10000 });
               }}>
                 <RefreshCw className="w-3.5 h-3.5" /> Zkontrolovat
               </ActionButton>

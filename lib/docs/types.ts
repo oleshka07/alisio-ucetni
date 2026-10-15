@@ -18,6 +18,7 @@ export const CATEGORIES: Record<string, string> = {
   salary: "Mzdy",
   internal: "Převod mezi vlastními účty",
   fee: "Bankovní poplatek",
+  cash: "Hotovost (bankomat)",
   ads_foreign: "Zahraniční služby (reverse charge)",
   import: "Import zboží",
   other: "Ostatní",

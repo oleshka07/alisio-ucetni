@@ -22,11 +22,29 @@ export const SYSTEM_RULES: SystemRule[] = [
     name: "Bankovní poplatky",
     priority: 20,
     direction: "out",
-    messageContains: "poplatek|vedení účtu|vedeni uctu|fee|úrok|urok",
+    messageContains: "poplatek|popl.|vedení účtu|vedeni uctu|ceny za služby|cena za|fee|úrok|urok",
     maxAbsAmount: 2000,
     category: "fee",
     notNeeded: true,
     hint: "Комісія банку — документ не потрібен.",
+  },
+  {
+    name: "Bankovní bonusy a úroky",
+    priority: 21,
+    direction: "in",
+    messageContains: "bonus za vedení|bonus za vedeni|moje odměny|moje odmeny|připsaný úrok|pripsany urok|kreditní úrok|úrok|urok",
+    maxAbsAmount: 2000,
+    category: "fee",
+    notNeeded: true,
+    hint: "Бонус / відсотки від банку — документ не потрібен.",
+  },
+  {
+    name: "Hotovost — bankomat",
+    priority: 22,
+    messageContains: "výběr hotovosti|vyber hotovosti|vklad přes atm|vklad pres atm|bankomat|atm",
+    category: "cash",
+    notNeeded: true,
+    hint: "Зняття / внесок готівки — документ не потрібен. Чеки за покупки готівкою додавайте як ruční platba (hotově).",
   },
   {
     name: "Meta / Facebook reklama",
@@ -73,13 +91,53 @@ export const SYSTEM_RULES: SystemRule[] = [
   },
 ];
 
+/** Системні правила: нові додати, змінені в коді — оновити (вимкнення користувачем зберігається). */
 export async function ensureSystemRules() {
-  const existing = await prisma.docRequirementRule.findMany({ where: { isSystem: true }, select: { name: true } });
-  const have = new Set(existing.map((r) => r.name));
-  const missing = SYSTEM_RULES.filter((r) => !have.has(r.name));
+  const existing = await prisma.docRequirementRule.findMany({ where: { isSystem: true } });
+  const byName = new Map(existing.map((r) => [r.name, r]));
+  const missing = SYSTEM_RULES.filter((r) => !byName.has(r.name));
   if (missing.length) {
     await prisma.docRequirementRule.createMany({ data: missing.map((r) => ({ ...r, isSystem: true })) as never });
   }
+  for (const def of SYSTEM_RULES) {
+    const cur = byName.get(def.name);
+    if (!cur) continue;
+    const want = {
+      priority: def.priority ?? 100, direction: def.direction ?? "any", messageContains: def.messageContains ?? null,
+      counterpartyContains: def.counterpartyContains ?? null, accountContains: def.accountContains ?? null,
+      maxAbsAmount: def.maxAbsAmount != null ? Number(def.maxAbsAmount) : null, category: def.category ?? null, notNeeded: def.notNeeded ?? false,
+      requiredDocs: (def.requiredDocs as string[] | undefined) ?? [], hint: def.hint ?? null,
+    };
+    const differs =
+      cur.priority !== want.priority || cur.direction !== want.direction || cur.messageContains !== want.messageContains ||
+      cur.counterpartyContains !== want.counterpartyContains || cur.accountContains !== want.accountContains ||
+      (cur.maxAbsAmount == null ? null : Number(cur.maxAbsAmount)) !== want.maxAbsAmount || cur.category !== want.category ||
+      cur.notNeeded !== want.notNeeded || cur.requiredDocs.join() !== want.requiredDocs.join() || cur.hint !== want.hint;
+    if (differs) await prisma.docRequirementRule.update({ where: { id: cur.id }, data: want });
+  }
+}
+
+/** Після зміни правил — перерахувати операції без ручного статусу. */
+export async function reapplyRules(): Promise<{ checked: number; changed: number }> {
+  await ensureSystemRules();
+  const rules = await prisma.docRequirementRule.findMany({ where: { isActive: true } });
+  const own = (await prisma.bankAccount.findMany({ select: { accountNumber: true, iban: true } }))
+    .flatMap((a) => [a.accountNumber, a.iban])
+    .filter((x): x is string => !!x);
+  const txs = await prisma.transaction.findMany({ where: { docStatusManual: false } });
+  let changed = 0;
+  for (const tx of txs) {
+    const o = pickRule(rules, { ...tx, amount: Number(tx.amount) }, own);
+    if (o.ruleId !== tx.ruleId || o.category !== tx.category || o.requiredDocs.join() !== tx.requiredDocs.join()) {
+      await prisma.transaction.update({
+        where: { id: tx.id },
+        data: { ruleId: o.ruleId, category: o.category, requiredDocs: o.requiredDocs, docHint: o.docHint },
+      });
+      await recomputeTransaction(tx.id);
+      changed++;
+    }
+  }
+  return { checked: txs.length, changed };
 }
 
 export interface TxLike {
