@@ -3,7 +3,8 @@ import type { NextRequest } from "next/server";
 import { getSessionFromRequest } from "@/lib/auth";
 
 // Без сесії. Cron і Telegram мають власні секрети, які перевіряються в самих хендлерах.
-const PUBLIC_PREFIXES = ["/login", "/robots.txt","/api/auth", "/api/cron", "/api/telegram/webhook"];
+// /api/mcp перевіряє власний токен у хендлері; /.well-known — MCP-клієнти шукають там OAuth (хай отримають 404, а не редірект)
+const PUBLIC_PREFIXES = ["/login", "/robots.txt", "/api/auth", "/api/cron", "/api/telegram/webhook", "/api/mcp", "/.well-known"];
 const STATIC_PREFIXES = ["/_next", "/favicon.ico", "/icons", "/images"];
 
 // API, доступні клієнтському порталу (6-значний код)

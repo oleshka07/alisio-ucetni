@@ -330,6 +330,22 @@ model User {
 
   requests      DocumentRequest[]
   notifications NotificationLog[]
+  apiTokens     ApiToken[]
+}
+
+/// Přístup pro AI (MCP konektor): token jedná jménem uživatele. Ukládá se jen hash.
+model ApiToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  tokenHash  String    @unique
+  prefix     String // prvních 6 znaků — ať jde token v seznamu poznat
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
 }
 
 model BankAccount {

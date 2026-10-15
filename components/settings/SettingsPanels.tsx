@@ -562,6 +562,72 @@ export function UsersPanel({ users }: { users: U[] }) {
   );
 }
 
+// ─── Přístup pro AI (MCP) ────────────────────────────────────────────────────
+
+type ApiTok = { id: string; name: string; prefix: string; createdAt: string; lastUsedAt: string | null; revokedAt: string | null };
+
+export function AiAccessPanel({ tokens }: { tokens: ApiTok[] }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [name, setName] = useState("Claude");
+  const [fresh, setFresh] = useState<string | null>(null);
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const data = await send("/api/api-tokens", "POST", { name });
+      setFresh(data.url);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Chyba");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Section
+      title="Přístup pro AI (MCP konektor)"
+      desc="Claude pak umí sám nahrávat výpisy a doklady, dohledat chybějící faktury v poště a zakládat úkoly. Adresa obsahuje tajný klíč — nikomu ji neposílejte; když unikne, klíč zrušte."
+    >
+      {fresh && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2 text-sm">
+          <p className="font-medium">Adresa konektoru — zkopírujte ji teď, znovu se nezobrazí:</p>
+          <div className="flex gap-2">
+            <input readOnly value={fresh} className={cn(input, "font-mono text-xs")} onFocus={(e) => e.target.select()} />
+            <button type="button" onClick={() => { navigator.clipboard.writeText(fresh); toast.success("Zkopírováno"); }} className="px-3 py-1.5 rounded-md text-sm border border-border bg-background">
+              Kopírovat
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground">claude.ai → Nastavení → Konektory → Přidat vlastní konektor → vložit tuto adresu (bez OAuth).</p>
+        </div>
+      )}
+      {tokens.length > 0 && (
+        <table className="w-full text-sm">
+          <tbody>
+            {tokens.map((t) => (
+              <tr key={t.id} className={cn("border-t border-border first:border-0", t.revokedAt && "opacity-50")}>
+                <td className="py-2 pr-3">{t.name}<span className="block text-xs text-muted-foreground font-mono">{t.prefix}…</span></td>
+                <td className="py-2 pr-3 text-xs text-muted-foreground">vytvořen {when(t.createdAt)} · použit {when(t.lastUsedAt)}</td>
+                <td className="py-2 text-right">
+                  {t.revokedAt ? (
+                    <span className="text-xs text-muted-foreground">zrušen</span>
+                  ) : (
+                    <ActionButton url={`/api/api-tokens/${t.id}`} method="DELETE" confirm="Zrušit klíč? Konektor s ním přestane fungovat." variant="ghost" className="text-xs px-2 py-0.5">Zrušit</ActionButton>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <form onSubmit={create} className="flex gap-2 items-end">
+        <div className="flex-1"><Field l="Název (kde se použije)"><input value={name} onChange={(e) => setName(e.target.value)} className={input} /></Field></div>
+        <SubmitBtn busy={busy}>Vytvořit adresu konektoru</SubmitBtn>
+      </form>
+    </Section>
+  );
+}
+
 // ─── Пароль ──────────────────────────────────────────────────────────────────
 
 export function PasswordPanel() {
