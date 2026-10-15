@@ -47,6 +47,18 @@ export function accountScore(a: Pick<BankAccount, "name" | "currency">, st: Pars
   return score;
 }
 
+/**
+ * Výpis je na jinou firmu, než ke které je účet v systému přiřazen? (např. účet omylem založen u jiné firmy)
+ * Vrací text chyby, nebo null. Bez názvu firmy ve výpisu nekontrolujeme.
+ */
+export async function ownerMismatch(account: BankAccount, st: ParsedStatement): Promise<string | null> {
+  const key = companyKey(st.accountName);
+  if (!key) return null;
+  const client = await prisma.client.findUnique({ where: { id: account.clientId }, include: { companyProfile: true } });
+  if (!client || companyKey(client.name) === key || companyKey(client.companyProfile?.companyName) === key) return null;
+  return `Výpis je na firmu „${st.accountName}“, ale účet „${account.name}“ je v systému u firmy „${client.name}“. Opravte firmu u účtu (Nastavení → Bankovní účty → Upravit) a nahrajte výpis znovu.`;
+}
+
 export interface AccountResolution {
   account: BankAccount | null;
   created?: boolean;
@@ -59,7 +71,10 @@ export interface AccountResolution {
  */
 export async function findOrCreateAccountForStatement(st: ParsedStatement): Promise<AccountResolution> {
   const byNumber = await findAccountForStatement(st);
-  if (byNumber) return { account: byNumber };
+  if (byNumber) {
+    const bad = await ownerMismatch(byNumber, st);
+    return bad ? { account: null, reason: bad } : { account: byNumber };
+  }
   const who = st.accountNumber || st.iban || "?";
   const key = companyKey(st.accountName);
   if (!key) return { account: null, reason: `Účet ${who} (${st.currency}) není v Nastavení → Bankovní účty a výpis neuvádí název firmy` };
@@ -104,9 +119,12 @@ export function sameAccount(acc: Pick<BankAccount, "accountNumber" | "iban">, st
  * Скринька може отримувати виписки кількох рахунків. Шукаємо рахунок, до якого
  * належить виписка: спершу «свій», потім будь-який інший активний.
  */
-export async function resolveAccountForStatement(preferred: BankAccount, st: ParsedStatement): Promise<BankAccount | null> {
-  if (sameAccount(preferred, st)) return preferred;
-  return (await findOrCreateAccountForStatement(st)).account;
+export async function resolveAccountForStatement(preferred: BankAccount, st: ParsedStatement): Promise<AccountResolution> {
+  if (sameAccount(preferred, st)) {
+    const bad = await ownerMismatch(preferred, st);
+    return bad ? { account: null, reason: bad } : { account: preferred };
+  }
+  return findOrCreateAccountForStatement(st);
 }
 
 export interface ImportResult {
