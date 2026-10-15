@@ -141,3 +141,65 @@ export async function testImap(cfg: Omit<ImapConfig, "lastUid" | "senderFilter">
     await client.logout().catch(() => undefined);
   }
 }
+
+export interface MailSearch {
+  /** Gmail syntax (X-GM-RAW) — jen u Gmailu / Google Workspace */
+  gmailQuery?: string;
+  from?: string;
+  subject?: string;
+  since?: Date;
+  before?: Date;
+}
+
+/**
+ * Najde listy podle kritérií (bez ohledu na lastUid) a vrátí je celé — pro ruční „dotáhni fakturu z pošty“.
+ * Nejnovější první, nejvýš `limit`.
+ */
+export async function searchMail(cfg: Omit<ImapConfig, "lastUid" | "senderFilter">, q: MailSearch, limit = 10): Promise<FetchedMail[]> {
+  const client = new ImapFlow({
+    host: cfg.host,
+    port: cfg.port,
+    secure: cfg.port === 993,
+    auth: { user: cfg.user, pass: cfg.password },
+    logger: false,
+    socketTimeout: 30_000,
+  });
+  client.on("error", () => undefined);
+  const out: FetchedMail[] = [];
+  await client.connect();
+  try {
+    const lock = await client.getMailboxLock(cfg.folder || "INBOX");
+    try {
+      const gmail = /gmail\.com$|googlemail\.com$/i.test(cfg.host);
+      const criteria: Record<string, unknown> = {};
+      if (q.gmailQuery) {
+        if (!gmail) throw new Error("gmailQuery funguje jen u Gmailu — použijte from/subject/since/before");
+        criteria.gmraw = q.gmailQuery;
+      }
+      if (q.from) criteria.from = q.from;
+      if (q.subject) criteria.subject = q.subject;
+      if (q.since) criteria.since = q.since;
+      if (q.before) criteria.before = q.before;
+      if (!Object.keys(criteria).length) throw new Error("Zadejte aspoň jedno kritérium hledání");
+      const uids = (((await client.search(criteria, { uid: true })) || []) as number[]).sort((a, b) => b - a).slice(0, limit);
+      if (!uids.length) return out;
+      for await (const msg of client.fetch(uids, { uid: true, source: true, envelope: true }, { uid: true })) {
+        if (!msg.source) continue;
+        const parsed = await simpleParser(msg.source);
+        out.push({
+          uid: msg.uid,
+          from: msg.envelope?.from?.[0]?.address?.toLowerCase() || "",
+          subject: parsed.subject || "",
+          date: parsed.date || null,
+          text: (parsed.text || "").slice(0, 2000),
+          attachments: parsed.attachments || [],
+        });
+      }
+    } finally {
+      lock.release();
+    }
+  } finally {
+    await client.logout().catch(() => undefined);
+  }
+  return out.sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0));
+}

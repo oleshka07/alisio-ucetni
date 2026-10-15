@@ -13,6 +13,7 @@ import {
   TelegramPanel,
   RulesPanel,
   PasswordPanel,
+  AiAccessPanel,
 } from "@/components/settings/SettingsPanels";
 
 export default async function SettingsPage() {
@@ -70,6 +71,13 @@ export default async function SettingsPage() {
         isOwner={isOwner}
       />
       <RulesPanel rules={rulesSafe} clients={clients.filter((c) => c.type === "company")} isOwner={isOwner} />
+      {isOwner && (
+        <AiAccessPanel
+          tokens={(await prisma.apiToken.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true, prefix: true, createdAt: true, lastUsedAt: true, revokedAt: true } })).map((t) => ({
+            ...t, createdAt: t.createdAt.toISOString(), lastUsedAt: t.lastUsedAt?.toISOString() ?? null, revokedAt: t.revokedAt?.toISOString() ?? null,
+          }))}
+        />
+      )}
       {isOwner && <UsersPanel users={users.map((u) => ({ ...u, lastLoginAt: u.lastLoginAt?.toISOString() ?? null }))} />}
       <PasswordPanel />
     </div>
