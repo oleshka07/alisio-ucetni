@@ -5,7 +5,7 @@ import { fetchNewMail } from "@/lib/mail/imap";
 import { parseStatementFile, SUPPORTED_FORMATS } from "./detect";
 import type { ParsedStatement } from "./types";
 import { fetchFioPeriod } from "./fio";
-import { importStatement, resolveAccountForStatement, sameAccount, findOrCreateAccountForStatement } from "./import";
+import { importStatement, resolveAccountForStatement, sameAccount, findOrCreateAccountForStatement, ownerMismatch } from "./import";
 import { putFile, extFromName } from "@/lib/storage";
 import { matchTaxPayments } from "@/lib/tax/sync";
 import { matchUnassignedDocuments } from "@/lib/docs/ingest";
@@ -51,9 +51,9 @@ async function syncImap(account: BankAccount, report: SyncReport) {
       }
       let fileUrl: string | undefined;
       for (const [i, st] of statements.entries()) {
-        const target = await resolveAccountForStatement(account, st);
+        const { account: target, reason } = await resolveAccountForStatement(account, st);
         if (!target) {
-          report.notes.push(`Výpis ${name}: účet ${st.iban || st.accountNumber} nepatří žádnému nastavenému účtu`);
+          report.notes.push(`Výpis ${name}: ${reason}`);
           continue;
         }
         fileUrl ??= await storeStatementFile(name, att.content);
@@ -130,6 +130,11 @@ export async function importUploadedStatement(account: BankAccount, fileName: st
     if (!sameAccount(account, st)) {
       throw new Error(`Výpis patří k účtu ${st.accountNumber || st.iban} (${st.currency}), ne k účtu „${account.name}“`);
     }
+    if (!account.accountNumber && !account.iban && account.currency !== st.currency) {
+      throw new Error(`Výpis je v ${st.currency}, účet „${account.name}“ je v ${account.currency}`);
+    }
+    const bad = await ownerMismatch(account, st);
+    if (bad) throw new Error(bad);
   }
   const fileUrl = await storeStatementFile(fileName, content);
   let imported = 0;

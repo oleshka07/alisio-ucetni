@@ -119,7 +119,7 @@ type Account = {
 };
 
 const EMPTY_ACCOUNT = {
-  clientId: "", name: "", accountNumber: "", iban: "", currency: "CZK", source: "imap_camt",
+  clientId: "", name: "", accountNumber: "", iban: "", currency: "CZK", source: "manual",
   imapHost: "", imapPort: "993", imapUser: "", imapPassword: "", imapFolder: "INBOX", senderFilter: "", fioToken: "",
 };
 
@@ -144,16 +144,19 @@ function AccountForm({ clients, initial, id, onDone }: { clients: Client[]; init
   return (
     <form onSubmit={submit} className="grid sm:grid-cols-2 gap-3 border border-border rounded-lg p-4 bg-muted/20">
       <Field l="Firma">
-        <select value={v.clientId} onChange={set("clientId")} className={input} disabled={!!id}>
+        <select value={v.clientId} onChange={set("clientId")} className={input}>
           {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
+        {id && initial?.clientId && v.clientId !== initial.clientId && (
+          <span className="block text-xs text-amber-600 mt-1">Účet i všechny jeho platby a doklady se přesunou k této firmě.</span>
+        )}
       </Field>
       <Field l="Název (např. KB běžný)"><input value={v.name} onChange={set("name")} className={input} required /></Field>
       <Field l="Číslo účtu (123456789/0100)"><input value={v.accountNumber} onChange={set("accountNumber")} className={input} /></Field>
       <Field l="IBAN"><input value={v.iban} onChange={set("iban")} className={input} /></Field>
       <Field l="Zdroj výpisů">
         <select value={v.source} onChange={set("source")} className={input}>
-          <option value="imap_camt">E-mail (CAMT.053 XML nebo PDF výpis KB)</option>
+          <option value="imap_camt">E-mail (výpisy PDF / CSV / CAMT.053 XML)</option>
           <option value="fio_api">Fio API (token)</option>
           <option value="manual">Jen ruční nahrání</option>
         </select>
