@@ -5,6 +5,7 @@ import { formatCurrency, formatDate, statusLabel, priorityLabel } from "@/lib/ut
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import FinanceSummary from "@/components/finance/FinanceSummary";
+import YearOverview from "@/components/finance/YearOverview";
 import {
   Building2,
   User,
@@ -16,8 +17,11 @@ import {
   Clock,
 } from "lucide-react";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const sp = await searchParams;
   const now = new Date();
+  const year = sp.year && /^\d{4}$/.test(sp.year) ? Number(sp.year) : now.getFullYear();
+  const query = Object.fromEntries(Object.entries({ year: sp.year, firm: sp.firm }).filter(([, v]) => v)) as Record<string, string>;
   const in45 = new Date(now.getTime() + 45 * 86400_000);
   const in30 = new Date(now.getTime() + 30 * 86400_000);
   const activeTask = { status: { in: ["pending", "in_progress"] } };
@@ -60,6 +64,8 @@ export default async function DashboardPage() {
       </div>
 
       <FinanceSummary />
+
+      <YearOverview year={year} clientId={sp.firm ?? null} query={query} />
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

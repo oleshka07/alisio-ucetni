@@ -19,7 +19,8 @@ export const GET = handle(async (req: NextRequest, { params }: { params: Promise
       "Content-Disposition": `${download ? "attachment" : "inline"}; filename*=UTF-8''${name}`,
       "Cache-Control": "private, max-age=300",
       "X-Content-Type-Options": "nosniff",
-      "Content-Security-Policy": "sandbox; default-src 'none'",
+      // ?view=1 — náhled PDF v rámečku (Kontrola měsíce)
+      ...(new URL(req.url).searchParams.has("view") && isPdf && !download ? {} : { "Content-Security-Policy": "sandbox; default-src 'none'" }),
     },
   });
 });
