@@ -117,7 +117,15 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
                                 .filter(Boolean)
                                 .join(" · ")}
                             </p>
-                            {!archive && doc.aiStatus === "failed" && <p className="text-xs text-amber-600 mt-0.5">Nerozpoznáno — přiřaďte ručně z detailu platby.</p>}
+                            {!archive && doc.aiStatus === "failed" && (
+                              <p className="text-xs text-amber-600 mt-0.5 flex flex-wrap items-center gap-2">
+                                Nerozpoznáno.
+                                <ActionButton url={`/api/documents/${doc.id}/reextract`} variant="ghost" className="text-xs px-1.5 py-0.5 underline" success="Rozpoznáno znovu">
+                                  Rozpoznat znovu
+                                </ActionButton>
+                                <span className="text-muted-foreground">nebo vyplňte údaje ručně (tužka vpravo)</span>
+                              </p>
+                            )}
                           </div>
                         </div>
                       </td>
