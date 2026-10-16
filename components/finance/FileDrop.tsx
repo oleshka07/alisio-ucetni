@@ -20,6 +20,7 @@ type Props = {
 type Result = {
   name?: string; duplicate?: boolean; autoLinked?: boolean; linkedTo?: string[]; candidates?: number;
   fileName?: string; ok?: boolean; account?: string; imported?: number; total?: number; createdAccount?: string;
+  asDocument?: boolean; statement?: boolean; error?: string;
 };
 
 export default function FileDrop({ url, label = "Přetáhněte soubory sem nebo klikněte", withDocType, defaultDocType = "", extra, accept, compact }: Props) {
@@ -46,11 +47,20 @@ export default function FileDrop({ url, label = "Přetáhněte soubory sem nebo 
       const auto = results.filter((r) => r.autoLinked).length;
       if (data.imported !== undefined) {
         const lines = results
-          .filter((r) => r.ok && r.account)
-          .map((r) => `${r.fileName} → ${r.account}: ${r.duplicate ? "už v systému" : `${r.imported} nových z ${r.total}`}${r.createdAccount ? " (nový účet)" : ""}`);
+          .filter((r) => r.ok && (r.account || r.asDocument))
+          .map((r) =>
+            r.asDocument
+              ? `${r.fileName} → není výpis, uloženo jako doklad${r.autoLinked ? " a přiřazeno k platbě" : r.duplicate ? " (už v systému)" : " (Nepřiřazené doklady)"}`
+              : `${r.fileName} → ${r.account}: ${r.duplicate ? "už v systému" : `${r.imported} nových z ${r.total}`}${r.createdAccount ? " (nový účet)" : ""}`
+          );
         toast.success(`Importováno ${data.imported} z ${data.total} plateb`, { description: lines.join("\n") || undefined, duration: 8000 });
         for (const err of (data.errors as string[] | undefined) || []) toast.error(err, { duration: 10000 });
-      } else toast.success(`Nahráno ${results.length}${auto ? ` · automaticky přiřazeno ${auto}` : ""}${dup ? ` · ${dup} už v systému byl(o)` : ""}`);
+      } else {
+        const st = results.filter((r) => r.statement);
+        toast.success(`Nahráno ${results.length}${auto ? ` · automaticky přiřazeno ${auto}` : ""}${dup ? ` · ${dup} už v systému byl(o)` : ""}`, {
+          description: st.map((r) => (r.ok ? `${r.name} → výpis, účet ${r.account}: ${r.imported} nových plateb` : `${r.name}: ${r.error}`)).join("\n") || undefined,
+        });
+      }
       router.refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Nahrání selhalo");
