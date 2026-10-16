@@ -1,7 +1,7 @@
 import type { User } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { decryptSecret } from "@/lib/crypto";
-import { ingestDocument, linkDocument } from "@/lib/docs/ingest";
+import { ingestDocument, linkDocument, reprocessDocument } from "@/lib/docs/ingest";
 import { importStatementFiles } from "@/lib/bank/sync";
 import { isBankStatementFile } from "@/lib/bank/detect";
 import { searchMail } from "@/lib/mail/imap";
@@ -228,6 +228,25 @@ export const TOOLS: Tool[] = [
       const { name, buffer } = decodeFile(a);
       if (await isBankStatementFile(buffer, name)) throw new ToolError("Tohle je bankovní výpis — použij upload_statement");
       return ingestFile(user, name, buffer, a);
+    },
+  },
+  {
+    name: "reextract_document",
+    description: "Znovu rozpozná doklad (AI) — např. když první rozpoznání selhalo — a zkusí ho přiřadit k platbě.",
+    inputSchema: { type: "object", required: ["documentId"], properties: { documentId: { type: "string" } } },
+    annotations: { idempotentHint: true },
+    run: async (a) => {
+      const id = str(a, "documentId");
+      if (!id) throw new ToolError("Chybí documentId");
+      const r = await reprocessDocument(id).catch((e) => { throw new ToolError(e instanceof Error ? e.message : String(e)); });
+      const d = r.document;
+      return {
+        aiStatus: d.aiStatus, docType: d.docType, clientId: d.clientId,
+        amount: d.extractedAmount != null ? Number(d.extractedAmount) : null, currency: d.extractedCurrency,
+        date: ymd(d.extractedDate), counterparty: d.extractedCounterparty, vs: d.extractedVs,
+        autoLinked: r.autoLinked ? { id: r.autoLinked.id, date: ymd(r.autoLinked.bookingDate), amount: Number(r.autoLinked.amount) } : null,
+        candidates: r.candidates.slice(0, 5).map((c) => ({ transactionId: c.tx.id, date: ymd(c.tx.bookingDate), amount: Number(c.tx.amount), counterparty: c.tx.counterpartyName, score: c.score })),
+      };
     },
   },
   {

@@ -1,9 +1,11 @@
 import OpenAI from "openai";
 import { extractFileText } from "@/lib/ai/file-parser";
+import { pdfText } from "@/lib/bank/kb-pdf";
 
 /**
  * AI-розпізнавання документа: тип, номер, дата, сума, VS, IČO сторін.
- * PDF і фото надсилаються моделі напряму (працює і для сканів), таблиці/текст — як текст.
+ * PDF з текстовим шаром іде моделі як текст (надійніше й дешевше, не потребує доступу ключа до файлів);
+ * скани PDF і фото — файлом / зображенням; таблиці та інший текст — як текст.
  */
 
 export interface Extracted {
@@ -81,7 +83,10 @@ export async function extractDocument(buffer: Buffer, fileName: string, mimeType
   const parts: Part[] = [{ type: "text", text: `File name: ${fileName}` }];
 
   if (isPdf) {
-    parts.push({ type: "file", file: { filename: fileName, file_data: `data:application/pdf;base64,${b64}` } });
+    const text = await pdfText(buffer).catch(() => "");
+    // текстовий шар є (видано з програми, не скан) — достатньо тексту
+    if (text.replace(/\s+/g, "").length >= 80) parts.push({ type: "text", text: `PDF text (layout lines):\n${text.slice(0, 30_000)}` });
+    else parts.push({ type: "file", file: { filename: fileName, file_data: `data:application/pdf;base64,${b64}` } });
   } else if (isImage) {
     parts.push({ type: "image_url", image_url: { url: `data:${mimeType};base64,${b64}` } });
   } else {

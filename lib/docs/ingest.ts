@@ -118,6 +118,38 @@ async function applyExtraction(doc: Document, ex: Extracted, linkedTxAmount: num
 
 export type IngestOutcome = IngestResult | { skipped: true; reason: string };
 
+/**
+ * Rozpoznat doklad znovu (např. AI selhalo) a zkusit ho přiřadit k platbě.
+ * Nepřiřazený doklad se po rozpoznání sám přiřadí, jestli je shoda jistá.
+ */
+export async function reprocessDocument(id: string): Promise<{ document: Document; autoLinked: Transaction | null; candidates: Candidate[] }> {
+  let doc = await prisma.document.findUnique({ where: { id }, include: { links: { include: { transaction: true } } } });
+  if (!doc) throw new Error("Doklad nenalezen");
+  if (!aiEnabled()) throw new Error("AI rozpoznávání není zapnuté (chybí OPENAI_API_KEY)");
+  const { readFile } = await import("@/lib/storage");
+  const buffer = await readFile(doc.fileUrl);
+  const linkedTx = doc.links[0]?.transaction ?? null;
+  let updated: Document;
+  try {
+    const ex = await extractDocument(buffer, doc.originalName, doc.mimeType || "application/octet-stream");
+    updated = ex
+      ? await applyExtraction(doc, ex, linkedTx ? Number(linkedTx.amount) : null, null)
+      : await prisma.document.update({ where: { id }, data: { aiStatus: "failed" } });
+  } catch (e) {
+    await prisma.document.update({ where: { id }, data: { aiStatus: "failed" } });
+    throw new Error(`AI rozpoznání selhalo: ${e instanceof Error ? e.message.slice(0, 200) : String(e)}`);
+  }
+  for (const l of doc.links) await recomputeTransaction(l.transactionId);
+  if (doc.links.length) return { document: updated, autoLinked: null, candidates: [] };
+  const candidates = await findCandidates(updated);
+  const auto = pickAutoMatch(candidates);
+  if (auto) {
+    await linkDocument(auto.tx.id, updated.id, "auto");
+    return { document: updated, autoLinked: auto.tx, candidates: [] };
+  }
+  return { document: updated, autoLinked: null, candidates };
+}
+
 const FINANCIAL = new Set(["invoice", "receipt", "credit_note"]);
 
 export async function ingestDocument(input: IngestInput & { requireFinancial: true }): Promise<IngestOutcome>;
