@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { checkContinuity, monthGaps } from "@/lib/review/continuity";
+import { cashSummary } from "@/lib/review/cash";
 import ReviewWorkspace, { type ReviewAccount, type ReviewTx, type ReviewDoc } from "@/components/review/ReviewWorkspace";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -36,7 +37,7 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
   const firmId = sp.firm && firms.some((f) => f.id === sp.firm) ? sp.firm : firms[0]?.id;
   if (!firmId) return <p className="text-sm text-muted-foreground">Zatím žádná firma.</p>;
 
-  const [accounts, txs, unassigned] = await Promise.all([
+  const [accounts, txs, unassigned, cashRows] = await Promise.all([
     prisma.bankAccount.findMany({
       where: { clientId: firmId },
       orderBy: { createdAt: "asc" },
@@ -56,7 +57,12 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
       orderBy: { extractedDate: "asc" },
       take: 60,
     }),
+    prisma.transaction.findMany({
+      where: { clientId: firmId, bookingDate: { lt: to }, OR: [{ category: "cash" }, { paymentMethod: "cash" }] },
+      select: { bookingDate: true, amount: true, currency: true, category: true, paymentMethod: true },
+    }),
   ]);
+  const cash = cashSummary(cashRows.map((r) => ({ ...r, amount: Number(r.amount) })), from, to);
 
   const docOut = (d: (typeof unassigned)[number]): ReviewDoc => ({
     id: d.id, name: d.originalName, mime: d.mimeType || "", docType: d.docType,
@@ -119,7 +125,7 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
           </Link>
         ))}
       </div>
-      <ReviewWorkspace key={`${firmId}-${month}`} accounts={accountsOut} txs={txOut} unassigned={unassigned.map(docOut)} />
+      <ReviewWorkspace key={`${firmId}-${month}`} accounts={accountsOut} txs={txOut} unassigned={unassigned.map(docOut)} cash={cash} />
     </div>
   );
 }
