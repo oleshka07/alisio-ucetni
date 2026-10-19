@@ -10,6 +10,7 @@ import { fmtAmount, fmtDate } from "@/lib/format";
 import { docTypeLabel } from "@/lib/docs/types";
 import StatusBadge from "@/components/finance/StatusBadge";
 import FileDrop from "@/components/finance/FileDrop";
+import type { CashSummary } from "@/lib/review/cash";
 
 export type ReviewDoc = {
   id: string; name: string; mime: string; docType: string | null; amount: number | null; currency: string | null; date: string | null; counterparty: string | null;
@@ -29,15 +30,15 @@ type Preview = { kind: "doc"; doc: ReviewDoc } | { kind: "statement"; id: string
 
 const isImage = (mime: string) => /^image\//.test(mime);
 
-export default function ReviewWorkspace({ accounts, txs, unassigned }: { accounts: ReviewAccount[]; txs: ReviewTx[]; unassigned: ReviewDoc[] }) {
+export default function ReviewWorkspace({ accounts, txs, unassigned, cash }: { accounts: ReviewAccount[]; txs: ReviewTx[]; unassigned: ReviewDoc[]; cash: CashSummary[] }) {
   const router = useRouter();
   // pořadí jako na obrazovce: po účtech, pak platby mimo banku
   const groups = useMemo(() => {
     const g = accounts.map((a) => ({ key: a.id, title: `${a.name}${a.number ? ` · ${a.number}` : ""}`, account: a as ReviewAccount | null, txs: txs.filter((t) => t.accountId === a.id) }));
     const other = txs.filter((t) => !t.accountId || !accounts.some((a) => a.id === t.accountId));
-    if (other.length) g.push({ key: "other", title: "Platby mimo banku (hotově, soukromou kartou)", account: null, txs: other });
+    if (other.length || cash.length) g.push({ key: "other", title: "Platby mimo banku (hotově, soukromou kartou)", account: null, txs: other });
     return g;
-  }, [accounts, txs]);
+  }, [accounts, txs, cash]);
   const ordered = useMemo(() => groups.flatMap((g) => g.txs), [groups]);
 
   const [selId, setSelId] = useState<string | null>(ordered[0]?.id ?? null);
@@ -136,6 +137,27 @@ export default function ReviewWorkspace({ accounts, txs, unassigned }: { account
                     ))}
                   </div>
                 )}
+                {g.key === "other" && cash.map((c) => {
+                  const m = (n: number) => fmtAmount(n, c.currency, false);
+                  return (
+                    <div key={c.currency} className="mt-1 text-[11px] text-muted-foreground space-y-0.5">
+                      <p>
+                        Pokladna {c.currency}: na začátku {m(c.opening)}
+                        {c.withdrawn ? ` · výběr z účtu +${m(c.withdrawn)}` : ""}
+                        {c.deposited ? ` · vklad na účet −${m(c.deposited)}` : ""}
+                        {c.received ? ` · příjmy hotově +${m(c.received)}` : ""}
+                        {` · výdaje s dokladem −${m(c.spent)}`}
+                      </p>
+                      <p className={cn("font-medium", c.closing > 0.005 ? "text-amber-700" : c.closing < -0.005 ? "text-red-700" : "text-emerald-700")}>
+                        {c.closing > 0.005
+                          ? `Bez dokladu zbývá ${m(c.closing)} — doložit účtenkami (Ruční platba → Hotově), nebo jde o výběr společníka.`
+                          : c.closing < -0.005
+                            ? `Výdaje hotově převyšují hotovost o ${m(-c.closing)} — chybí výběr nebo vklad do pokladny.`
+                            : "Hotovost je doložená."}
+                      </p>
+                    </div>
+                  );
+                })}
                 {g.account && [...g.account.issues, ...g.account.gaps.map((x) => `Výpis chybí ${fmtDate(x.from)} – ${fmtDate(x.to)}`)].map((msg) => (
                   <p key={msg} className="text-[11px] text-amber-700 mt-1 inline-flex items-center gap-1 mr-3"><AlertTriangle className="w-3 h-3" />{msg}</p>
                 ))}
