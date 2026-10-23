@@ -263,14 +263,14 @@ export async function sendTaxReminders() {
  * Примітки (виписка не пройшла звірку, чужий рахунок) — одразу: це разова подія з конкретним файлом.
  */
 export async function reportSyncHealth(opts: {
-  kind: "bank" | "inbox";
+  kind: "bank" | "inbox" | "databox";
   refId: string;
   name: string;
   prevFailCount: number;
   error?: string | null;
   notes?: string[];
 }): Promise<number> {
-  const what = opts.kind === "bank" ? "Рахунок" : "Скринька";
+  const what = opts.kind === "bank" ? "Рахунок" : opts.kind === "databox" ? "Датова схранка" : "Скринька";
   const where = appUrl(opts.kind === "bank" ? "/statements" : "/settings");
   if (opts.error) {
     const failCount = opts.prevFailCount + 1;

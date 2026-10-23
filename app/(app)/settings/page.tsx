@@ -6,9 +6,11 @@ import { getSession } from "@/lib/auth";
 import { telegramEnabled } from "@/lib/telegram/api";
 import { aiEnabled } from "@/lib/docs/extract";
 import { ensureSystemRules } from "@/lib/docs/rules";
+import { DATABOX_FIELDS } from "@/lib/databox/sync";
 import {
   BankAccountsPanel,
   InboxesPanel,
+  DataBoxesPanel,
   UsersPanel,
   TelegramPanel,
   RulesPanel,
@@ -68,6 +70,13 @@ export default async function SettingsPage() {
       <InboxesPanel
         clients={clients}
         inboxes={inboxes.map((i) => ({ ...i, lastSyncAt: i.lastSyncAt?.toISOString() ?? null }))}
+        isOwner={isOwner}
+      />
+      <DataBoxesPanel
+        clients={clients}
+        databoxes={(await prisma.dataBoxAccount.findMany({ select: DATABOX_FIELDS, orderBy: { createdAt: "asc" } })).map((d) => ({
+          ...d, passwordExpiresAt: d.passwordExpiresAt?.toISOString() ?? null, lastSyncAt: d.lastSyncAt?.toISOString() ?? null, createdAt: undefined,
+        }))}
         isOwner={isOwner}
       />
       <RulesPanel rules={rulesSafe} clients={clients.filter((c) => c.type === "company")} isOwner={isOwner} />
