@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CheckCircle2, Circle, ExternalLink, FileText, Link2, ScrollText, AlertTriangle, Loader2 } from "lucide-react";
+import { CheckCircle2, Circle, ExternalLink, FileText, Link2, ScrollText, AlertTriangle, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtAmount, fmtDate } from "@/lib/format";
 import { docTypeLabel } from "@/lib/docs/types";
@@ -229,11 +229,25 @@ export default function ReviewWorkspace({ accounts, txs, unassigned, cash }: { a
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {sel.docs.map((d) => (
-                  <button key={d.id} type="button" onClick={() => setPreview({ kind: "doc", doc: d })}
-                    className={cn("inline-flex items-center gap-1 text-xs px-2 py-1 rounded border max-w-full", preview?.kind === "doc" && preview.doc.id === d.id ? "border-primary bg-primary/10" : "border-border hover:bg-accent")}>
-                    <FileText className="w-3 h-3 shrink-0" /><span className="truncate">{d.name}</span>
-                    {d.docType && <span className="text-muted-foreground">· {docTypeLabel(d.docType)}</span>}
-                  </button>
+                  <span key={d.id} className={cn("inline-flex items-center rounded border max-w-full", preview?.kind === "doc" && preview.doc.id === d.id ? "border-primary bg-primary/10" : "border-border")}>
+                    <button type="button" onClick={() => setPreview({ kind: "doc", doc: d })} className="inline-flex items-center gap-1 text-xs pl-2 pr-1 py-1 min-w-0 hover:bg-accent rounded-l">
+                      <FileText className="w-3 h-3 shrink-0" /><span className="truncate">{d.name}</span>
+                      {d.docType && <span className="text-muted-foreground">· {docTypeLabel(d.docType)}</span>}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      title="Odpojit doklad od platby"
+                      aria-label="Odpojit doklad od platby"
+                      onClick={() => {
+                        if (!confirm("Odpojit doklad od platby?")) return;
+                        act(`/api/transactions/${sel.id}/documents?documentId=${d.id}`, "DELETE", undefined, "Doklad odpojen").then((ok) => { if (ok && preview?.kind === "doc" && preview.doc.id === d.id) setPreview(null); });
+                      }}
+                      className="px-1.5 py-1 text-muted-foreground hover:text-red-700 hover:bg-accent rounded-r border-l border-border"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
                 ))}
                 {sel.docs.length === 0 && <span className="text-xs text-muted-foreground">K platbě zatím není doklad.</span>}
               </div>
