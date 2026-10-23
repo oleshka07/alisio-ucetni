@@ -358,6 +358,128 @@ export function InboxesPanel({ clients, inboxes, isOwner }: { clients: Client[];
   );
 }
 
+// ─── Датові схранки через API ISDS ────────────────────────────────────────────
+
+type DataBox = {
+  id: string; name: string; clientId: string; environment: string; username: string; dataBoxId: string | null; ownerName: string | null;
+  passwordExpiresAt: string | null; isActive: boolean; lastSyncAt: string | null; lastError: string | null;
+};
+
+export function DataBoxesPanel({ clients, databoxes, isOwner }: { clients: Client[]; databoxes: DataBox[]; isOwner: boolean }) {
+  const router = useRouter();
+  const [adding, setAdding] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const { v, set, setV } = useForm({ name: "", clientId: clients[0]?.id ?? "", username: "", password: "", environment: "production" });
+  const clientName = (id: string) => clients.find((c) => c.id === id)?.name ?? "—";
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const r = await send("/api/databoxes", "POST", v);
+      toast.success(`Schránka napojena${r.sync?.messages ? ` · staženo zpráv: ${r.sync.messages}` : ""}`);
+      if (r.sync?.error) toast.error(r.sync.error, { duration: 10000 });
+      setAdding(false);
+      setV((p) => ({ ...p, password: "", username: "", name: "" }));
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Chyba");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function changePassword(id: string) {
+    const password = window.prompt("Nové heslo k datové schránce (po změně ve schránce):");
+    if (!password) return;
+    try {
+      await send(`/api/databoxes/${id}`, "PATCH", { password });
+      toast.success("Heslo uloženo");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Chyba");
+    }
+  }
+
+  return (
+    <Section
+      title="Datové schránky"
+      desc="Přímé napojení přes API ISDS (zdarma): zprávy i přílohy se stahují každých 15 minut a každá nová zpráva je úkol s termínem. Pozor: přihlášení systému = doručení zprávy, lhůty začínají běžet hned (fikce 10 dní se neuplatní)."
+      action={isOwner && !adding ? (
+        <button onClick={() => setAdding(true)} className="inline-flex items-center gap-1 text-sm text-primary whitespace-nowrap shrink-0"><Plus className="w-4 h-4" /> Napojit schránku</button>
+      ) : undefined}
+    >
+      {adding && (
+        <form onSubmit={submit} className="grid sm:grid-cols-2 gap-3 border border-border rounded-lg p-4 bg-muted/20">
+          <Field l="Komu schránka patří (firma / osoba)">
+            <select value={v.clientId} onChange={set("clientId")} className={input} required>
+              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}{c.type === "person" ? " (osoba)" : ""}</option>)}
+            </select>
+          </Field>
+          <Field l="Název"><input value={v.name} onChange={set("name")} className={input} placeholder="Swipe Scape — DS" /></Field>
+          <Field l="Uživatelské jméno ISDS"><input value={v.username} onChange={set("username")} className={input} required autoComplete="off" /></Field>
+          <Field l="Heslo"><input type="password" value={v.password} onChange={set("password")} className={input} required autoComplete="new-password" /></Field>
+          <Field l="Prostředí">
+            <select value={v.environment} onChange={set("environment")} className={input}>
+              <option value="production">Ostrá schránka (mojedatovaschranka.cz)</option>
+              <option value="test">Testovací (czebox.cz)</option>
+            </select>
+          </Field>
+          <p className="text-xs text-muted-foreground sm:col-span-2">
+            Doporučení: ve schránce (Správa uživatelů) založte samostatného uživatele pro tento systém. Heslo se ukládá šifrovaně; v ISDS obvykle vyprší po 90 dnech — systém včas připomene v Telegramu.
+          </p>
+          <div className="sm:col-span-2 flex gap-2">
+            <SubmitBtn busy={busy}>Ověřit a napojit</SubmitBtn>
+            <button type="button" onClick={() => setAdding(false)} className="text-sm px-3 py-1.5 text-muted-foreground">Zrušit</button>
+          </div>
+        </form>
+      )}
+      {databoxes.length === 0 && !adding && <p className="text-sm text-muted-foreground">Zatím žádná schránka přes API.</p>}
+      <div className="space-y-2">
+        {databoxes.map((d) => {
+          const expDays = d.passwordExpiresAt ? Math.ceil((new Date(d.passwordExpiresAt).getTime() - Date.now()) / 86400_000) : null;
+          return (
+            <div key={d.id} className={cn("border border-border rounded-lg p-3 flex flex-wrap items-start justify-between gap-3", !d.isActive && "opacity-60")}>
+              <div>
+                <p className="font-medium text-sm">
+                  {d.name} <span className="text-xs text-muted-foreground">{d.dataBoxId || d.username}{d.environment === "test" ? " · test" : ""}</span>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {clientName(d.clientId)}{d.ownerName ? ` · ${d.ownerName}` : ""} · poslední kontrola: {when(d.lastSyncAt)}
+                  {expDays != null && <span className={cn(expDays <= 14 && "text-amber-700 font-medium")}> · heslo platí do {new Date(d.passwordExpiresAt!).toLocaleDateString("cs-CZ")}</span>}
+                </p>
+                {d.lastError && <p className="text-xs text-red-600 mt-1">{d.lastError}</p>}
+              </div>
+              <div className="flex gap-2">
+                <ActionButton url={`/api/databoxes/${d.id}/sync`} className="text-xs px-2 py-1" onDone={(r) => {
+                  const x = r as { ok: boolean; messages: number; tasks: number; pending: number; error?: string };
+                  if (x.ok) toast.success(`Staženo zpráv: ${x.messages} · nových úkolů: ${x.tasks}${x.pending ? ` · zbývá ${x.pending} (příště)` : ""}`);
+                  else toast.error(x.error || "Chyba");
+                }}>
+                  <RefreshCw className="w-3.5 h-3.5" /> Zkontrolovat
+                </ActionButton>
+                {isOwner && (
+                  <button onClick={() => changePassword(d.id)} className="text-xs px-2 py-1 rounded-md hover:bg-accent text-muted-foreground">Změnit heslo</button>
+                )}
+                {isOwner && (
+                  <ActionButton url={`/api/databoxes/${d.id}`} method="PATCH" body={{ isActive: !d.isActive }} variant="ghost" className="text-xs px-2 py-1">
+                    {d.isActive ? "Vypnout" : "Zapnout"}
+                  </ActionButton>
+                )}
+                {isOwner && (
+                  <ActionButton url={`/api/databoxes/${d.id}`} method="DELETE" variant="ghost" confirm="Odpojit schránku? Stažené zprávy a úkoly zůstanou." className="text-xs px-2 py-1">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </ActionButton>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Section>
+  );
+}
+
 // ─── Правила документів ──────────────────────────────────────────────────────
 
 type Rule = {

@@ -34,6 +34,7 @@ model Client {
   transactions     Transaction[]
   docRequests      DocumentRequest[]
   docRules         DocRequirementRule[]
+  dataBoxAccounts  DataBoxAccount[]
 }
 
 // ─── Дані роботодавця / компанії ─────────────────────────────────────────────
@@ -544,5 +545,32 @@ model DataBoxMessage {
   rawText      String?
   taskId       String?   @unique
   task         Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  // ── Stažené přes API ISDS ──
+  accountId    String?
+  account      DataBoxAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  acceptedAt   DateTime? // doručení (přihlášením / fikcí)
+  downloadedAt DateTime? // obsah a přílohy staženy
+  attachments  Int?
   createdAt    DateTime  @default(now())
+}
+
+/// Datová schránka napojená přes API ISDS (webové služby). Přihlášení = doručení všech dodaných zpráv.
+model DataBoxAccount {
+  id                String           @id @default(cuid())
+  name              String
+  clientId          String
+  client            Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  environment       String           @default("production") // production | test (czebox)
+  username          String
+  passwordEnc       String
+  dataBoxId         String? // ID schránky z GetOwnerInfoFromLogin
+  ownerName         String?
+  passwordExpiresAt DateTime?
+  passwordCheckedAt DateTime?
+  isActive          Boolean          @default(true)
+  lastSyncAt        DateTime?
+  lastError         String?
+  failCount         Int              @default(0)
+  createdAt         DateTime         @default(now())
+  messages          DataBoxMessage[]
 }
