@@ -8,6 +8,7 @@ export const COMPANY_DOC_CATEGORIES = {
   bank: "Bankovní smlouvy, podpisové vzory",
   hr: "Personální (vzory smluv, BOZP)",
   certificate: "Certifikáty, pojištění",
+  poa: "Plné moci",
   other: "Ostatní",
 } as const;
 

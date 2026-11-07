@@ -222,6 +222,7 @@ model Document {
   extractedNumber       String?
   extractedCounterparty String?
   archivedAt            DateTime? // зайвий / помилково доданий: прихований зі списків і пошуку платежів
+  resortedAt            DateTime? // „Rozřadit“ už doklad znovu rozpoznalo AI — podruhé ne (lib/docs/sort.ts)
 
   // ── Документи фірми (не до платежів): виписка з OR, статут, ліцензії, договори ──
   companyDoc  Boolean   @default(false)

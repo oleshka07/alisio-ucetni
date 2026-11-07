@@ -5,6 +5,7 @@ import { DOC_TYPES } from "@/lib/docs/types";
 import { deleteFile } from "@/lib/storage";
 import { findCandidates, pickAutoMatch } from "@/lib/docs/match";
 import { linkDocument } from "@/lib/docs/ingest";
+import { moveDocumentToStatements } from "@/lib/docs/sort";
 
 /**
  * Зміни документа з веба (окремий документ або масова дія):
@@ -12,8 +13,20 @@ import { linkDocument } from "@/lib/docs/ingest";
  * Повертає id платежу, якщо після змін документ автоматично прив'язався.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function updateDocument(id: string, body: Record<string, any>): Promise<{ autoLinked: string | null }> {
+export async function updateDocument(id: string, body: Record<string, any>): Promise<{ autoLinked: string | null; movedToStatements?: string }> {
   const data: Record<string, unknown> = {};
+  // „Bankovní výpis“ — načíst do výpisů (účet a firma podle výpisu), doklad archivovat
+  if (body.docType === "bank_statement") {
+    const r = await moveDocumentToStatements(id);
+    if (!r.ok) throw new HttpError(400, r.error || "Výpis se nepodařilo načíst");
+    return { autoLinked: null, movedToStatements: `${r.account ?? "výpis"}: nových plateb ${r.imported}` };
+  }
+  // „Dokument firmy“ (plná moc, smlouva, rozhodnutí…) — mezi dokumenty firmy, ne k platbám
+  if (body.docType === "company_doc") {
+    await prisma.transactionDocument.deleteMany({ where: { documentId: id } });
+    await prisma.document.update({ where: { id }, data: { companyDoc: true, docCategory: "other" } });
+    return { autoLinked: null };
+  }
   if (body.docType !== undefined) {
     if (body.docType && !(body.docType in DOC_TYPES)) throw new HttpError(400, "Neplatný typ");
     data.docType = body.docType || null;
