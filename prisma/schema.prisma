@@ -22,19 +22,20 @@ model Client {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  companyProfile   CompanyProfile?
-  employeeProfile  EmployeeProfile?
-  taxProfile       TaxProfile?
-  insuranceProfile InsuranceProfile?
-  tasks            Task[]
-  documents        Document[]
-  taxEvents        TaxEvent[]
-  auditLogs        AuditLog[]
-  bankAccounts     BankAccount[]
-  transactions     Transaction[]
-  docRequests      DocumentRequest[]
-  docRules         DocRequirementRule[]
-  dataBoxAccounts  DataBoxAccount[]
+  companyProfile    CompanyProfile?
+  employeeProfile   EmployeeProfile?
+  taxProfile        TaxProfile?
+  insuranceProfile  InsuranceProfile?
+  tasks             Task[]
+  documents         Document[]
+  taxEvents         TaxEvent[]
+  auditLogs         AuditLog[]
+  bankAccounts      BankAccount[]
+  transactions      Transaction[]
+  docRequests       DocumentRequest[]
+  docRules          DocRequirementRule[]
+  dataBoxAccounts   DataBoxAccount[]
+  accountantReports AccountantReport[]
 }
 
 // ─── Дані роботодавця / компанії ─────────────────────────────────────────────
@@ -66,17 +67,17 @@ model CompanyProfile {
   notes            String?
 
   // ── Daňový kalendář (lib/tax/calendar.ts) ──
-  taxCalendar        Boolean @default(true)
-  taxEntity          String? // legal | osvc (prázdné = podle legalForm)
-  euSupplies         Boolean @default(false)
-  hasEmployees       Boolean @default(false)
-  hasWithholding     Boolean @default(false)
-  incomeTaxFiling    String  @default("standard") // standard | electronic | advisor
-  incomeTaxAdvances  String  @default("none") // none | half | quarter
-  flatTax            Boolean @default(false)
-  roadTaxVehicles    Boolean @default(false)
-  ownsRealEstate     Boolean @default(false)
-  propertyTaxSplit   Boolean @default(false)
+  taxCalendar       Boolean @default(true)
+  taxEntity         String? // legal | osvc (prázdné = podle legalForm)
+  euSupplies        Boolean @default(false)
+  hasEmployees      Boolean @default(false)
+  hasWithholding    Boolean @default(false)
+  incomeTaxFiling   String  @default("standard") // standard | electronic | advisor
+  incomeTaxAdvances String  @default("none") // none | half | quarter
+  flatTax           Boolean @default(false)
+  roadTaxVehicles   Boolean @default(false)
+  ownsRealEstate    Boolean @default(false)
+  propertyTaxSplit  Boolean @default(false)
 }
 
 // ─── Дані працівника/директора ────────────────────────────────────────────────
@@ -280,9 +281,9 @@ model TaxEvent {
   // ── automatický daňový kalendář ──
   key               String? // "vat:2026-09" — jedinečný v rámci firmy
   kind              String? // vat | kh | income_return | payroll …
-  source            String   @default("manual") // auto | manual
-  files             Boolean  @default(false)
-  pays              Boolean  @default(false)
+  source            String    @default("manual") // auto | manual
+  files             Boolean   @default(false)
+  pays              Boolean   @default(false)
   accountPrefix     String?
   note              String?
   doneAt            DateTime?
@@ -294,8 +295,6 @@ model TaxEvent {
 }
 
 // ─── API інтеграції (для майбутнього) ─────────────────────────────────────────
-
-
 
 // ─── Аудит лог змін профілю ───────────────────────────────────────────────────
 
@@ -498,22 +497,23 @@ model DocumentRequest {
 }
 
 model DocumentInbox {
-  id              String    @id @default(cuid())
+  id              String             @id @default(cuid())
   name            String
-  kind            String    @default("documents") // documents | databox (лише сповіщення ISDS)
+  kind            String             @default("documents") // documents | databox (лише сповіщення ISDS)
   clientId        String? // компанія за замовчуванням
   imapHost        String
-  imapPort        Int       @default(993)
+  imapPort        Int                @default(993)
   imapUser        String
   imapPasswordEnc String
-  imapFolder      String    @default("INBOX")
+  imapFolder      String             @default("INBOX")
   senderFilter    String?
   lastUid         Int?
-  isActive        Boolean   @default(true)
+  isActive        Boolean            @default(true)
   lastSyncAt      DateTime?
   lastError       String?
-  failCount       Int       @default(0) // збоїв синхронізації поспіль — для сповіщень у Telegram
-  createdAt       DateTime  @default(now())
+  failCount       Int                @default(0) // збоїв синхронізації поспіль — для сповіщень у Telegram
+  createdAt       DateTime           @default(now())
+  reports         AccountantReport[]
 }
 
 model NotificationLog {
@@ -533,8 +533,8 @@ model NotificationLog {
 
 // Сповіщення з датових схранок (ISDS), що приходять на пошту
 model DataBoxMessage {
-  id           String    @id @default(cuid())
-  messageId    String    @unique // ID datové zprávy
+  id           String          @id @default(cuid())
+  messageId    String          @unique // ID datové zprávy
   dataBoxId    String? // ID schránky-příjemce
   dataBoxName  String?
   clientId     String?
@@ -544,15 +544,15 @@ model DataBoxMessage {
   fictionAt    DateTime? // + 10 dní = doručení fikcí
   emailSubject String?
   rawText      String?
-  taskId       String?   @unique
-  task         Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  taskId       String?         @unique
+  task         Task?           @relation(fields: [taskId], references: [id], onDelete: SetNull)
   // ── Stažené přes API ISDS ──
   accountId    String?
   account      DataBoxAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   acceptedAt   DateTime? // doručení (přihlášením / fikcí)
   downloadedAt DateTime? // obsah a přílohy staženy
   attachments  Int?
-  createdAt    DateTime  @default(now())
+  createdAt    DateTime        @default(now())
 }
 
 /// Datová schránka napojená přes API ISDS (webové služby). Přihlášení = doručení všech dodaných zpráv.
@@ -574,4 +574,22 @@ model DataBoxAccount {
   failCount         Int              @default(0)
   createdAt         DateTime         @default(now())
   messages          DataBoxMessage[]
+}
+
+/// Měsíční podklady účetní e-mailem: výpisy + doklady + platby.csv za minulý měsíc (ZIP v příloze nebo odkaz).
+model AccountantReport {
+  id            String         @id @default(cuid())
+  clientId      String
+  client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  email         String // příjemci, čárkou
+  dayOfMonth    Int            @default(10)
+  senderInboxId String? // ze které napojené schránky odeslat (SMTP se stejným heslem)
+  senderInbox   DocumentInbox? @relation(fields: [senderInboxId], references: [id], onDelete: SetNull)
+  attachZip     Boolean        @default(true)
+  note          String? // vlastní text do e-mailu
+  isActive      Boolean        @default(true)
+  lastSentMonth String? // YYYY-MM
+  lastSentAt    DateTime?
+  lastError     String?
+  createdAt     DateTime       @default(now())
 }
