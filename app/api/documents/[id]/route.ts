@@ -7,10 +7,10 @@ import { updateDocument, deleteArchivedDocument } from "@/lib/docs/doc-actions";
 export const PATCH = handle(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requireStaff();
   const { id } = await params;
-  const { autoLinked } = await updateDocument(id, await req.json());
+  const { autoLinked, movedToStatements } = await updateDocument(id, await req.json());
   revalidatePath("/inbox");
   revalidatePath("/transactions");
-  return NextResponse.json({ ok: true, autoLinked });
+  return NextResponse.json({ ok: true, autoLinked, movedToStatements });
 });
 
 /** Остаточне видалення — лише з архіву і лише власник. */

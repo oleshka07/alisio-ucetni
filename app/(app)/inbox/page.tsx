@@ -13,6 +13,7 @@ import DocTypeSelect from "@/components/finance/DocTypeSelect";
 import DocEditButton from "@/components/finance/DocEditButton";
 import ManualPaymentButton from "@/components/finance/ManualPaymentButton";
 import BulkBar, { SelectAll } from "@/components/finance/BulkBar";
+import ResortButton from "@/components/finance/ResortButton";
 import { manualPaymentBlocker } from "@/lib/docs/manual-payment";
 import { Archive, ArchiveRestore, FileText, Link2, Mail, Send, Trash2, Upload } from "lucide-react";
 
@@ -39,14 +40,18 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Nepřiřazené doklady</h1>
-        <p className="text-muted-foreground text-sm mt-0.5">
-          Doklady, ke kterým zatím není platba. Jakmile přijde výpis, systém je přiřadí sám — nebo je přiřaďte ručně.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Nepřiřazené doklady</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">
+            Doklady, ke kterým zatím není platba. Jakmile přijde výpis, systém je přiřadí sám — nebo je přiřaďte ručně.
+            Výpis omylem mezi doklady? Typ → „Bankovní výpis“.
+          </p>
+        </div>
+        {!archive && <ResortButton />}
       </div>
 
-      {!archive && <FileDrop url="/api/documents/intake" compact label="Nahrát doklady (PDF, foto)" />}
+      {!archive && <FileDrop url="/api/documents/intake" compact label="Nahrát cokoli — výpisy, faktury, účtenky, smlouvy, plné moci (PDF, foto, CSV)" />}
 
       <div className="flex gap-1 border-b border-border">
         {[

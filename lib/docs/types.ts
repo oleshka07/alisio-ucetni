@@ -6,6 +6,7 @@ export const DOC_TYPES = {
   cmr: { cs: "CMR / dodací list", uk: "CMR / накладна" },
   customs: { cs: "Celní prohlášení", uk: "Митна декларація" },
   payslip: { cs: "Výplatní páska", uk: "Розрахунковий лист" },
+  bank_statement: { cs: "Bankovní výpis", uk: "Банківська виписка" },
   other: { cs: "Jiný doklad", uk: "Інший документ" },
 } as const;
 

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { decryptSecret } from "@/lib/crypto";
 import { ingestDocument, linkDocument, reprocessDocument } from "@/lib/docs/ingest";
 import { importStatementFiles } from "@/lib/bank/sync";
+import { resortUnassigned } from "@/lib/docs/sort";
 import { isBankStatementFile } from "@/lib/bank/detect";
 import { searchMail } from "@/lib/mail/imap";
 import { reapplyRules } from "@/lib/docs/rules";
@@ -226,7 +227,11 @@ export const TOOLS: Tool[] = [
     },
     run: async (a, user) => {
       const { name, buffer } = decodeFile(a);
-      if (await isBankStatementFile(buffer, name)) throw new ToolError("Tohle je bankovní výpis — použij upload_statement");
+      // výpis poslaný jako doklad → rovnou do výpisů (k účtu a firmě podle výpisu)
+      if (!str(a, "transactionId") && (await isBankStatementFile(buffer, name))) {
+        const [r] = await importStatementFiles([{ name, content: buffer }]);
+        return { statement: true, ...r };
+      }
       return ingestFile(user, name, buffer, a);
     },
   },
@@ -337,6 +342,14 @@ export const TOOLS: Tool[] = [
       }
       return { found: out.length, mails: out };
     },
+  },
+  {
+    name: "resort_documents",
+    description:
+      "Rozřadí nepřiřazené doklady: bankovní výpisy přesune do výpisů (k účtu a firmě), nerozpoznané nechá znovu přečíst AI, " +
+      "plné moci / výpisy z rejstříku / rozhodnutí úřadů dá do dokumentů firmy a ostatní zkusí přiřadit k platbám. Běží i samo každé ráno.",
+    inputSchema: { type: "object", properties: {} },
+    run: async () => resortUnassigned(),
   },
   {
     name: "reapply_rules",

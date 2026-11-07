@@ -94,6 +94,7 @@ export default function BulkBar({ archive, isOwner, clients }: { archive: boolea
           <select disabled={busy} className={sel} value="" onChange={(e) => e.target.value && run("docType", e.target.value === "-" ? null : e.target.value)}>
             <option value="">Změnit typ…</option>
             {Object.entries(DOC_TYPES).map(([k, v]) => <option key={k} value={k}>{v.cs}</option>)}
+            <option value="company_doc">Dokument firmy →</option>
           </select>
           {clients.length > 0 && (
             <select disabled={busy} className={sel} value="" onChange={(e) => e.target.value && run("clientId", e.target.value === "-" ? null : e.target.value)}>

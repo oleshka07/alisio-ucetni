@@ -9,7 +9,11 @@ import { pdfText } from "@/lib/bank/kb-pdf";
  */
 
 export interface Extracted {
-  docType: "invoice" | "receipt" | "contract" | "cmr" | "customs" | "payslip" | "credit_note" | "other";
+  docType:
+    | "invoice" | "receipt" | "contract" | "cmr" | "customs" | "payslip" | "credit_note"
+    // ne doklady k platbám — jdou do dokumentů firmy (lib/docs/ingest.ts → COMPANY_DOC_TYPES)
+    | "bank_statement" | "power_of_attorney" | "company_registry" | "license" | "tax_authority" | "insurance"
+    | "other";
   documentNumber: string | null;
   issueDate: string | null; // YYYY-MM-DD
   dueDate: string | null;
@@ -35,7 +39,17 @@ const SCHEMA = {
     "reverseCharge", "summary",
   ],
   properties: {
-    docType: { type: "string", enum: ["invoice", "receipt", "contract", "cmr", "customs", "payslip", "credit_note", "other"] },
+    docType: {
+      type: "string",
+      enum: [
+        "invoice", "receipt", "contract", "cmr", "customs", "payslip", "credit_note",
+        "bank_statement", "power_of_attorney", "company_registry", "license", "tax_authority", "insurance", "other",
+      ],
+      description:
+        "bank_statement = bank account statement / transaction list; power_of_attorney = plná moc / довіреність; " +
+        "company_registry = výpis z obchodního/živnostenského rejstříku, zakladatelská listina; license = oprávnění, licence, povolení; " +
+        "tax_authority = letter/decision from a tax or social/health insurance office (výzva, rozhodnutí, platební výměr); insurance = insurance policy",
+    },
     documentNumber: { type: ["string", "null"] },
     issueDate: { type: ["string", "null"], description: "YYYY-MM-DD" },
     dueDate: { type: ["string", "null"], description: "YYYY-MM-DD" },
@@ -53,7 +67,8 @@ const SCHEMA = {
   },
 } as const;
 
-const SYSTEM = `You extract data from Czech/EU business documents (faktury, účtenky, smlouvy, CMR, celní prohlášení).
+const SYSTEM = `You extract data from Czech/EU business documents (faktury, účtenky, smlouvy, CMR, celní prohlášení, výpisy, plné moci, rozhodnutí úřadů).
+supplierName/supplierIco = the issuer (seller, bank, office); customerName/customerIco = the company or person the document is for.
 Return ONLY facts that are visible in the document. If a field is not present, return null. Never guess amounts.
 Dates → YYYY-MM-DD. Amounts → numbers without currency symbols. IČO → 8 digits.`;
 
