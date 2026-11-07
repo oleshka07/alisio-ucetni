@@ -6,6 +6,8 @@ CRON_TZ=Europe/Prague
 10 6 * * * /root/projects/alisio-ucetni/deploy/cron.sh tax-calendar >> /var/log/alisio-ucetni-cron.log 2>&1
 # Нерозподілені документи: ще раз розкласти (виписки, AI, прив'язка) — щодня 6:20
 20 6 * * * /root/projects/alisio-ucetni/deploy/cron.sh resort >> /var/log/alisio-ucetni-cron.log 2>&1
+# Документи за минулий місяць бухгалтерці (з дня, налаштованого в Nastavení) — щодня 7:15, після ранкового розкладання
+15 7 * * * /root/projects/alisio-ucetni/deploy/cron.sh accountant >> /var/log/alisio-ucetni-cron.log 2>&1
 # Дедлайни ≤ 2 дні (фікція доручення, податки): щодня 8:40
 40 8 * * * /root/projects/alisio-ucetni/deploy/cron.sh reminders >> /var/log/alisio-ucetni-cron.log 2>&1
 # Дайджест «чого бракує»: понеділок і четвер 8:55
