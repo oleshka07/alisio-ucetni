@@ -343,12 +343,22 @@ export const TOOLS: Tool[] = [
       const query = { gmailQuery: str(a, "gmailQuery"), from: str(a, "from"), subject: str(a, "subject"), since: day(a, "since"), before: day(a, "before") };
       const limit = num(a, "limit", 5, 20);
       const out: unknown[] = [];
+      const errors: Array<{ inbox: string; error: string }> = [];
       for (const inbox of inboxes) {
-        const mails = await searchMail(
-          { host: inbox.imapHost, port: inbox.imapPort, user: inbox.imapUser, password: decryptSecret(inbox.imapPasswordEnc), folder: inbox.imapFolder },
-          query,
-          limit
-        );
+        // gmailQuery rozumí jen Gmail; ostatní schránky se při něm přeskočí a hledání nespadne celé.
+        if (query.gmailQuery && !/gmail\.com$|googlemail\.com$/i.test(inbox.imapHost)) continue;
+        let mails: Awaited<ReturnType<typeof searchMail>>;
+        try {
+          mails = await searchMail(
+            { host: inbox.imapHost, port: inbox.imapPort, user: inbox.imapUser, password: decryptSecret(inbox.imapPasswordEnc), folder: inbox.imapFolder },
+            query,
+            limit
+          );
+        } catch (e) {
+          // Chyba jedné schránky (heslo, výpadek) nesmí zablokovat ostatní; heslo se do textu nedostane.
+          errors.push({ inbox: inbox.name, error: e instanceof Error ? e.message.split(decryptSecret(inbox.imapPasswordEnc)).join("***").slice(0, 200) : "chyba" });
+          continue;
+        }
         for (const m of mails) {
           const atts = m.attachments.filter((x) => /pdf|xml|isdoc|image\//i.test(x.contentType || "") || /\.(pdf|isdocx?|xml|jpe?g|png)$/i.test(x.filename || ""));
           const entry: Record<string, unknown> = { inbox: inbox.name, date: m.date?.toISOString() ?? null, from: m.from, subject: m.subject, attachments: atts.map((x) => x.filename) };
@@ -367,7 +377,7 @@ export const TOOLS: Tool[] = [
           out.push(entry);
         }
       }
-      return { found: out.length, mails: out };
+      return { found: out.length, mails: out, ...(errors.length ? { errors } : {}) };
     },
   },
   {
