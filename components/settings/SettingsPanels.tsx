@@ -8,6 +8,7 @@ import ActionButton from "@/components/finance/ActionButton";
 import FileDrop from "@/components/finance/FileDrop";
 import { CATEGORIES, DOC_TYPES } from "@/lib/docs/types";
 import { cn } from "@/lib/utils";
+import { IMAP_PRESETS, imapPresetFor } from "@/lib/mail/presets";
 
 // ─── Спільне ─────────────────────────────────────────────────────────────────
 
@@ -251,13 +252,6 @@ const KIND: Record<string, string> = {
   databox: "Jen oznámení datových schránek",
 };
 
-const IMAP_PRESETS: Array<[string, string]> = [
-  ["Gmail / Google Workspace", "imap.gmail.com"],
-  ["Seznam / Email.cz", "imap.seznam.cz"],
-  ["Centrum.cz", "imap.centrum.cz"],
-  ["Outlook / Microsoft 365", "outlook.office365.com"],
-];
-
 export function InboxesPanel({ clients, inboxes, isOwner }: { clients: Client[]; inboxes: Inbox[]; isOwner: boolean }) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
@@ -305,12 +299,15 @@ export function InboxesPanel({ clients, inboxes, isOwner }: { clients: Client[];
           <Field l="IMAP server">
             <input value={v.imapHost} onChange={set("imapHost")} className={input} required />
             <span className="flex flex-wrap gap-1 mt-1">
-              {IMAP_PRESETS.map(([label, host]) => (
+              {IMAP_PRESETS.map(({ label, host }) => (
                 <button key={host} type="button" onClick={() => setV((p) => ({ ...p, imapHost: host, imapPort: "993" }))} className="text-[11px] px-1.5 py-0.5 rounded border border-border hover:bg-accent">
                   {label}
                 </button>
               ))}
             </span>
+            {imapPresetFor(v.imapHost)?.hint && (
+              <p data-testid="imap-hint" className="text-[11px] text-muted-foreground mt-1.5 leading-snug">{imapPresetFor(v.imapHost)!.hint}</p>
+            )}
           </Field>
           <Field l="Port"><input value={v.imapPort} onChange={set("imapPort")} className={input} /></Field>
           <Field l="Uživatel"><input value={v.imapUser} onChange={set("imapUser")} className={input} required autoComplete="off" /></Field>
