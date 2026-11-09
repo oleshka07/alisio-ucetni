@@ -11,6 +11,7 @@ import {
   BankAccountsPanel,
   InboxesPanel,
   DataBoxesPanel,
+  AccountantReportsPanel,
   UsersPanel,
   TelegramPanel,
   RulesPanel,
@@ -70,6 +71,15 @@ export default async function SettingsPage() {
       <InboxesPanel
         clients={clients}
         inboxes={inboxes.map((i) => ({ ...i, lastSyncAt: i.lastSyncAt?.toISOString() ?? null }))}
+        isOwner={isOwner}
+      />
+      <AccountantReportsPanel
+        clients={clients}
+        inboxes={inboxes.map((i) => ({ id: i.id, name: i.name, imapUser: i.imapUser }))}
+        reports={(await prisma.accountantReport.findMany({ orderBy: { createdAt: "asc" } })).map((r) => ({
+          id: r.id, clientId: r.clientId, email: r.email, dayOfMonth: r.dayOfMonth, senderInboxId: r.senderInboxId, attachZip: r.attachZip, note: r.note,
+          isActive: r.isActive, lastSentMonth: r.lastSentMonth, lastSentAt: r.lastSentAt?.toISOString() ?? null, lastError: r.lastError,
+        }))}
         isOwner={isOwner}
       />
       <DataBoxesPanel

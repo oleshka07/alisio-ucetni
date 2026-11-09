@@ -355,6 +355,128 @@ export function InboxesPanel({ clients, inboxes, isOwner }: { clients: Client[];
   );
 }
 
+// ─── Документи бухгалтерці щомісяця ───────────────────────────────────────────
+
+type Report = {
+  id: string; clientId: string; email: string; dayOfMonth: number; senderInboxId: string | null; attachZip: boolean; note: string | null;
+  isActive: boolean; lastSentMonth: string | null; lastSentAt: string | null; lastError: string | null;
+};
+
+function lastMonths(n: number): string[] {
+  const now = new Date();
+  return Array.from({ length: n }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - 1 - i, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+}
+
+export function AccountantReportsPanel({ clients, inboxes, reports, isOwner }: { clients: Client[]; inboxes: Array<{ id: string; name: string; imapUser: string }>; reports: Report[]; isOwner: boolean }) {
+  const router = useRouter();
+  const [adding, setAdding] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [sendMonth, setSendMonth] = useState<Record<string, string>>({});
+  const months = lastMonths(6);
+  const { v, set, setV } = useForm({ clientId: clients[0]?.id ?? "", email: "", dayOfMonth: "10", senderInboxId: inboxes[0]?.id ?? "", attachZip: true, note: "" });
+  const clientName = (id: string) => clients.find((c) => c.id === id)?.name ?? "—";
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await send("/api/accountant-reports", "POST", v);
+      toast.success("Uloženo — podklady půjdou každý měsíc automaticky");
+      setAdding(false);
+      setV((p) => ({ ...p, email: "", note: "" }));
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Chyba");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendNow(r: Report) {
+    const month = sendMonth[r.id] || months[0];
+    if (!window.confirm(`Odeslat podklady za ${month} na ${r.email}?`)) return;
+    setBusy(true);
+    try {
+      const res = await send(`/api/accountant-reports/${r.id}/send`, "POST", { month });
+      toast.success(`Odesláno: plateb ${res.payments}, dokladů ${res.documents}, výpisů ${res.statements}${res.attached ? " (ZIP v příloze)" : " (odkaz ke stažení)"}`);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Chyba");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Section
+      title="Podklady pro účetní e-mailem"
+      desc="Každý měsíc od zvoleného dne odejde účetní e-mail za minulý měsíc: výpisy, doklady k platbám, doklady bez platby a platby.csv v jednom ZIPu (do 15 MB v příloze, vždy i odkaz ke stažení na 30 dní) a seznam plateb, ke kterým ještě chybí doklad. Odesílá se z vaší napojené schránky."
+      action={isOwner && !adding ? (
+        <button onClick={() => setAdding(true)} className="inline-flex items-center gap-1 text-sm text-primary whitespace-nowrap shrink-0"><Plus className="w-4 h-4" /> Přidat</button>
+      ) : undefined}
+    >
+      {adding && (
+        <form onSubmit={submit} className="grid sm:grid-cols-2 gap-3 border border-border rounded-lg p-4 bg-muted/20">
+          <Field l="Firma">
+            <select value={v.clientId} onChange={set("clientId")} className={input} required>
+              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </Field>
+          <Field l="E-mail účetní (více adres čárkou)"><input type="text" value={v.email} onChange={set("email")} className={input} required placeholder="ucetni@example.cz" /></Field>
+          <Field l="Den v měsíci (1–28)"><input type="number" min={1} max={28} value={v.dayOfMonth} onChange={set("dayOfMonth")} className={input} /></Field>
+          <Field l="Odeslat ze schránky">
+            <select value={v.senderInboxId} onChange={set("senderInboxId")} className={input}>
+              {inboxes.length === 0 && <option value="">— nejdřív napojte schránku v „Pošta“ —</option>}
+              {inboxes.map((i) => <option key={i.id} value={i.id}>{i.name} ({i.imapUser})</option>)}
+            </select>
+          </Field>
+          <Field l="Vlastní text do e-mailu (nepovinné)"><input value={v.note} onChange={set("note")} className={input} placeholder="Např. poznámky k měsíci" /></Field>
+          <label className="flex items-center gap-2 text-sm mt-5">
+            <input type="checkbox" checked={v.attachZip} onChange={set("attachZip")} className="w-4 h-4 accent-primary" /> ZIP do přílohy (jinak jen odkaz)
+          </label>
+          <div className="sm:col-span-2 flex gap-2">
+            <SubmitBtn busy={busy}>Uložit</SubmitBtn>
+            <button type="button" onClick={() => setAdding(false)} className="text-sm px-3 py-1.5 text-muted-foreground">Zrušit</button>
+          </div>
+        </form>
+      )}
+      {reports.length === 0 && !adding && <p className="text-sm text-muted-foreground">Zatím se nic neposílá.</p>}
+      <div className="space-y-2">
+        {reports.map((r) => (
+          <div key={r.id} className={cn("border border-border rounded-lg p-3 flex flex-wrap items-start justify-between gap-3", !r.isActive && "opacity-60")}>
+            <div>
+              <p className="font-medium text-sm">{clientName(r.clientId)} → {r.email}</p>
+              <p className="text-xs text-muted-foreground">
+                každý měsíc od {r.dayOfMonth}. dne · {r.attachZip ? "ZIP v příloze + odkaz" : "jen odkaz"} · naposledy: {r.lastSentMonth ? `za ${r.lastSentMonth} (${when(r.lastSentAt)})` : "zatím ne"}
+              </p>
+              {r.lastError && <p className="text-xs text-red-600 mt-1">{r.lastError}</p>}
+            </div>
+            {isOwner && (
+              <div className="flex flex-wrap gap-2 items-center">
+                <select value={sendMonth[r.id] || months[0]} onChange={(e) => setSendMonth((p) => ({ ...p, [r.id]: e.target.value }))} className="text-xs border border-border rounded-md px-2 py-1 bg-background">
+                  {months.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+                <button disabled={busy} onClick={() => sendNow(r)} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-border hover:bg-accent disabled:opacity-50">
+                  <Send className="w-3.5 h-3.5" /> Odeslat teď
+                </button>
+                <ActionButton url={`/api/accountant-reports/${r.id}`} method="PATCH" body={{ isActive: !r.isActive }} variant="ghost" className="text-xs px-2 py-1">
+                  {r.isActive ? "Vypnout" : "Zapnout"}
+                </ActionButton>
+                <ActionButton url={`/api/accountant-reports/${r.id}`} method="DELETE" variant="ghost" confirm="Smazat nastavení?" className="text-xs px-2 py-1">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </ActionButton>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
 // ─── Датові схранки через API ISDS ────────────────────────────────────────────
 
 type DataBox = {

@@ -2,7 +2,9 @@
 import type { User } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hmacHex, safeEqual } from "@/lib/crypto";
-import { ingestDocument, linkDocument } from "@/lib/docs/ingest";
+import { linkDocument } from "@/lib/docs/ingest";
+import { routeIncomingFile } from "@/lib/docs/sort";
+import { companyDocCategoryLabel } from "@/lib/docs/company-docs";
 import { answerCallback, downloadFile, editMessage, esc, sendMessage, type Keyboard } from "./api";
 import { ingestReply, txLine } from "./notify";
 
@@ -22,7 +24,7 @@ function verifyLinkToken(token: string): string | null {
 const HELP = [
   "🤖 <b>Alisio Účetnictví</b>",
   "",
-  "• Надішліть фото або PDF документа — я розпізнаю його і знайду платіж.",
+  "• Надсилайте будь-які документи (фото, PDF, CSV): виписку покладу до потрібного рахунку і фірми, фактуру чи чек — до платежу, довіреність, виписку з реєстру, лист з úřadu — у документи фірми.",
   "• /missing — платежі без документів, можна вибрати й завантажити.",
   "• /requests — що просить бухгалтер.",
   "• /cancel — скасувати очікування файлу.",
@@ -92,7 +94,7 @@ async function handleFile(user: User, chatId: number, msg: any) {
   try {
     const { buffer } = await downloadFile(fileId);
     const awaiting = user.tgAwaitingTxId;
-    const result = await ingestDocument({
+    const routed = await routeIncomingFile({
       buffer,
       fileName,
       mimeType: mime,
@@ -103,6 +105,25 @@ async function handleFile(user: User, chatId: number, msg: any) {
       linkedBy: "telegram",
     });
     if (awaiting) await prisma.user.update({ where: { id: user.id }, data: { tgAwaitingTxId: null } });
+    if (routed.kind === "statement") {
+      const r = routed.result;
+      const html = r.ok
+        ? `🏦 <b>Виписка</b> → ${esc(r.account || "рахунок")}${r.createdAccount ? ` (новий рахунок: ${esc(r.createdAccount)})` : ""}
+Нових платежів: <b>${r.imported}</b>${r.duplicate ? " — ця виписка вже була" : ""}`
+        : `⚠️ Схоже на виписку, але не завантажилась: ${esc(r.error || "невідома помилка")}`;
+      await editMessage(chatId, pending.message_id, html);
+      return;
+    }
+    const result = routed.result;
+    if (result.document.companyDoc) {
+      await editMessage(
+        chatId,
+        pending.message_id,
+        `🗂 <b>Документ фірми</b>: ${esc(companyDocCategoryLabel(result.document.docCategory))}
+${esc(result.document.description || result.document.originalName)}`
+      );
+      return;
+    }
     const reply = ingestReply(result);
     await editMessage(chatId, pending.message_id, reply.html, reply.kb);
   } catch (e) {

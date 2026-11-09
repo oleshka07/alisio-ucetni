@@ -6,6 +6,8 @@ import { syncAllDocumentInboxes } from "@/lib/docs/inbox-sync";
 import { sendDigest, sendUrgentReminders, sendTaxReminders } from "@/lib/telegram/notify";
 import { syncTaxCalendar } from "@/lib/tax/sync";
 import { reapplyRules } from "@/lib/docs/rules";
+import { resortUnassigned } from "@/lib/docs/sort";
+import { sendDueAccountantReports } from "@/lib/finance/accountant-report";
 import { syncAllDataBoxAccounts, sendDataBoxPasswordReminders } from "@/lib/databox/sync";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +21,8 @@ export const maxDuration = 60;
  *   /api/cron/reminders — щодня: дедлайни ≤ 2 дні (фікція доручення) + податкові строки (7 / 2 / 0 днів, прострочені)
  *   /api/cron/tax-calendar — щодня: згенерувати податкові строки на 4 місяці, зіставити платежі
  *   /api/cron/rules — разово після зміни системних правил: перерахувати, які документи потрібні
+ *   /api/cron/accountant — щодня: з налаштованого дня місяця надіслати бухгалтерці документи за минулий місяць
+ *   /api/cron/resort — щодня: нерозподілені документи ще раз розкласти (виписки → виписки, AI, прив'язка)
  */
 async function run(job: string, force: boolean) {
   switch (job) {
@@ -36,6 +40,10 @@ async function run(job: string, force: boolean) {
       return { taxCalendar: await syncTaxCalendar() };
     case "rules":
       return { rules: await reapplyRules() };
+    case "accountant":
+      return { accountant: await sendDueAccountantReports() };
+    case "resort":
+      return { resort: await resortUnassigned(25) };
     default:
       return null;
   }

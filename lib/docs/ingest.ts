@@ -61,6 +61,15 @@ async function ownIcos(): Promise<Map<string, string>> {
   return m;
 }
 
+/** Druhy, které nejsou doklady k platbám → dokumenty firmy (kategorie z lib/docs/company-docs.ts). */
+export const COMPANY_DOC_TYPES: Partial<Record<Extracted["docType"], string>> = {
+  power_of_attorney: "poa",
+  company_registry: "registry",
+  license: "license",
+  tax_authority: "tax",
+  insurance: "certificate",
+};
+
 function mapDocType(ex: Extracted, side: "in" | "out" | null): string {
   switch (ex.docType) {
     case "invoice":
@@ -71,6 +80,7 @@ function mapDocType(ex: Extracted, side: "in" | "out" | null): string {
     case "cmr":
     case "customs":
     case "payslip":
+    case "bank_statement":
       return ex.docType;
     default:
       return "other";
@@ -94,6 +104,8 @@ async function applyExtraction(doc: Document, ex: Extracted, linkedTxAmount: num
   }
 
   const docType = userDocType || mapDocType(ex, side);
+  // plná moc, výpis z rejstříku, rozhodnutí úřadu… — k platbě nepatří, patří mezi dokumenty firmy
+  const companyCategory = !userDocType && linkedTxAmount == null && !doc.companyDoc ? COMPANY_DOC_TYPES[ex.docType] : undefined;
   const counterparty = docType === "invoice_out" ? ex.customerName : ex.supplierName;
   const issue = ex.issueDate && /^\d{4}-\d{2}-\d{2}$/.test(ex.issueDate) ? new Date(ex.issueDate) : null;
 
@@ -112,6 +124,7 @@ async function applyExtraction(doc: Document, ex: Extracted, linkedTxAmount: num
       extractedNumber: ex.documentNumber,
       extractedCounterparty: counterparty,
       description: doc.description || ex.summary,
+      ...(companyCategory ? { companyDoc: true, docCategory: companyCategory } : {}),
     },
   });
 }
@@ -140,7 +153,7 @@ export async function reprocessDocument(id: string): Promise<{ document: Documen
     throw new Error(`AI rozpoznání selhalo: ${e instanceof Error ? e.message.slice(0, 200) : String(e)}`);
   }
   for (const l of doc.links) await recomputeTransaction(l.transactionId);
-  if (doc.links.length) return { document: updated, autoLinked: null, candidates: [] };
+  if (doc.links.length || updated.companyDoc) return { document: updated, autoLinked: null, candidates: [] };
   const candidates = await findCandidates(updated);
   const auto = pickAutoMatch(candidates);
   if (auto) {
@@ -246,7 +259,7 @@ export async function ingestDocument(input: IngestInput): Promise<IngestOutcome>
   // 4. Автоприв'язка / кандидати
   let autoLinked: Transaction | null = null;
   let candidates: Candidate[] = [];
-  if (!linkedTx) {
+  if (!linkedTx && !doc.companyDoc) {
     candidates = await findCandidates(doc);
     const auto = pickAutoMatch(candidates);
     if (auto) {

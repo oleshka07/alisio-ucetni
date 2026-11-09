@@ -13,7 +13,10 @@ export default function DocTypeSelect({ documentId, value, className }: { docume
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ docType }),
     });
-    if (!res.ok) toast.error("Nepodařilo se uložit");
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) toast.error(data.error || "Nepodařilo se uložit");
+    else if (data.movedToStatements) toast.success(`Přesunuto do výpisů — ${data.movedToStatements}`);
+    else if (docType === "company_doc") toast.success("Přesunuto do dokumentů firmy");
     router.refresh();
   }
   return (
@@ -22,6 +25,7 @@ export default function DocTypeSelect({ documentId, value, className }: { docume
       {Object.entries(DOC_TYPES).map(([k, v]) => (
         <option key={k} value={k}>{v.cs}</option>
       ))}
+      <option value="company_doc">Dokument firmy (plná moc, výpis z OR…) →</option>
     </select>
   );
 }
