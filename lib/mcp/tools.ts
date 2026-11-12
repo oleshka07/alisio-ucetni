@@ -6,7 +6,7 @@ import { importStatementFiles } from "@/lib/bank/sync";
 import { resortUnassigned } from "@/lib/docs/sort";
 import { isBankStatementFile } from "@/lib/bank/detect";
 import { searchMail } from "@/lib/mail/imap";
-import { configFromInbox, listFolders, searchMessages, getMessage, saveDraft, sendMessage, replyToMessage, MailError, type Config } from "@/lib/mail/mailbox";
+import { configFromInbox, listFolders, searchMessages, getMessage, saveDraft, sendMessage, replyToMessage, moveMessages, setFlags, MailError, type Config } from "@/lib/mail/mailbox";
 import { reapplyRules } from "@/lib/docs/rules";
 
 /**
@@ -445,6 +445,45 @@ export const TOOLS: Tool[] = [
       const subject = str(a, "subject");
       if (!to?.length || !subject) throw new ToolError("Pro novou zprávu zadej to a subject (nebo replyToUid)");
       return mailRun(() => saveDraft(cfg, { to, cc: strList(a, "cc"), subject, text }));
+    },
+  },
+  {
+    name: "mail_move",
+    description:
+      "Přesune e-maily (podle uid z mail_search) do jiné složky: destination = trash (koš, vratné), archive (složka Archiv, vytvoří se), spam nebo přesná cesta. " +
+      "Nic nemaže trvale. Max. 200 uid na volání. Jen majitel. Použij až po schválení člověkem (např. po třídění pošty).",
+    inputSchema: {
+      type: "object",
+      required: ["uids", "destination"],
+      properties: { ...MB, folder: { type: "string", description: "Zdrojová složka (výchozí inbox)" }, uids: { type: "array", items: { type: "number" } }, destination: { type: "string" } },
+    },
+    annotations: { destructiveHint: true },
+    run: async (a, user) => {
+      if (user.role !== "owner") throw new ToolError("Přesouvat e-maily může jen majitel");
+      const { cfg } = await mailInbox(a);
+      const uids = (Array.isArray(a.uids) ? a.uids : []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
+      if (!uids.length) throw new ToolError("Chybí uids");
+      if (uids.length > 200) throw new ToolError("Max. 200 uid na jedno volání");
+      const dest = str(a, "destination");
+      if (!dest) throw new ToolError("Chybí destination");
+      return mailRun(() => moveMessages(cfg, str(a, "folder") || "inbox", uids, dest));
+    },
+  },
+  {
+    name: "mail_flag",
+    description: "Označí e-maily jako přečtené/nepřečtené (seen) nebo hvězdičkou (flagged). Podle uid z mail_search. Jen majitel.",
+    inputSchema: {
+      type: "object",
+      required: ["uids"],
+      properties: { ...MB, folder: { type: "string" }, uids: { type: "array", items: { type: "number" } }, seen: { type: "boolean" }, flagged: { type: "boolean" } },
+    },
+    run: async (a, user) => {
+      if (user.role !== "owner") throw new ToolError("Označovat e-maily může jen majitel");
+      const { cfg } = await mailInbox(a);
+      const uids = (Array.isArray(a.uids) ? a.uids : []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
+      if (!uids.length || uids.length > 200) throw new ToolError("Zadej 1–200 uid");
+      if (typeof a.seen !== "boolean" && typeof a.flagged !== "boolean") throw new ToolError("Zadej seen a/nebo flagged");
+      return mailRun(() => setFlags(cfg, str(a, "folder") || "inbox", uids, { seen: typeof a.seen === "boolean" ? a.seen : undefined, flagged: typeof a.flagged === "boolean" ? a.flagged : undefined }));
     },
   },
   {
