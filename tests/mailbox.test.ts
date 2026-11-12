@@ -86,3 +86,29 @@ test("readOnly блокує чернетку й відправку", async () =>
     await env.close();
   }
 });
+
+test("moveMessages: у кошик, у Archiv (створюється), setFlags", async () => {
+  const { moveMessages, setFlags } = await import("@/lib/mail/mailbox");
+  const env = await startEnv();
+  try {
+    const all = await searchMessages(env.cfg, {});
+    const uids = (all.messages as Array<{ uid: number }>).map((m) => m.uid);
+    assert.equal(all.total, 3);
+
+    const toTrash = await moveMessages(env.cfg, "inbox", [uids[0]], "trash");
+    assert.deepEqual(toTrash.uids, [uids[0]]);
+    const toArch = await moveMessages(env.cfg, "inbox", [uids[1]], "archive");
+    assert.equal(toArch.to, "Archiv");
+
+    // у вхідних лишився один із трьох; у кожній цільовій папці — по одному (вісь: різні призначення)
+    assert.equal((await searchMessages(env.cfg, {})).total, 1);
+    assert.equal((await searchMessages(env.cfg, { folder: "Archiv" })).total, 1);
+    assert.equal((await searchMessages(env.cfg, { folder: "trash" })).total, 1);
+
+    const left = (await searchMessages(env.cfg, {})).messages as Array<{ uid: number; seen: boolean }>;
+    await setFlags(env.cfg, "inbox", [left[0].uid], { seen: true });
+    assert.equal(((await searchMessages(env.cfg, {})).messages as Array<{ seen: boolean }>)[0].seen, true);
+  } finally {
+    await env.close();
+  }
+});

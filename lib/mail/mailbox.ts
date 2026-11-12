@@ -43,6 +43,7 @@ const ALIASES: Record<string, { use: string; names: string[] }> = {
   drafts: { use: "\\Drafts", names: ["Koncepty", "Drafts"] },
   trash: { use: "\\Trash", names: ["Koš", "Trash", "Deleted Items"] },
   spam: { use: "\\Junk", names: ["Spam", "Junk", "Nevyžádaná pošta"] },
+  archive: { use: "\\Archive", names: ["Archiv", "Archive", "Archív"] },
 };
 
 // ─── зʼєднання ───────────────────────────────────────────────────────────────
@@ -514,7 +515,15 @@ export async function moveMessages(cfg: Config, folder: string, uids: number[], 
   assertWritable(cfg);
   return withImap(cfg, async (c) => {
     const from = await resolveFolder(c, folder);
-    const to = await resolveFolder(c, destination);
+    let to: string;
+    try {
+      to = await resolveFolder(c, destination);
+    } catch (e) {
+      // Папки «Архів» у Seznam за замовчуванням немає — створюємо «Archiv» (нічого не видаляється, лише переміщується).
+      if (destination.trim().toLowerCase() !== "archive") throw e;
+      await c.mailboxCreate("Archiv");
+      to = "Archiv";
+    }
     const lock = await c.getMailboxLock(from);
     try {
       await c.messageMove(uids.join(","), to, { uid: true });
